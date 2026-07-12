@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+:root {
+  /* Cores — tema "livro-caixa" (ledger): tinta, pergaminho e ouro */
+  --bg: #0F211A;
+  --surface: #163024;
+  --surface-2: #1D3A2C;
+  --hairline: rgba(237, 230, 214, 0.14);
+  --text: #EDE6D6;
+  --text-muted: #9BB09B;
+
+  --gold: #C9A227;      /* saldo / valor / destaque */
+  --sage: #5CAE7C;       /* receita / positivo */
+  --brick: #C1503D;      /* despesa / negativo */
+  --plum: #8A6DAE;       /* categorias diversas */
+
+  --font-display: var(--font-fraunces);
+  --font-body: var(--font-inter);
+  --font-numeric: var(--font-plex-mono);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-hairline: var(--hairline);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-gold: var(--gold);
+  --color-sage: var(--sage);
+  --color-brick: var(--brick);
+  --color-plum: var(--plum);
+
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+  --font-numeric: var(--font-numeric);
+}
+
+* {
+  border-color: var(--hairline);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+}
+
+/* Linha de ledger: rótulo à esquerda, guia pontilhada, valor monoespaçado à direita.
+   É o elemento-assinatura do produto — remete ao livro-caixa físico, sem ser planilha. */
+.ledger-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.ledger-leader {
+  flex: 1;
+  border-bottom: 1px dotted var(--hairline);
+  margin-bottom: 0.3rem;
+  min-width: 1rem;
+}
+
+.tabular {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Foco visível para acessibilidade de teclado */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

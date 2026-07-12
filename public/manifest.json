@@ -1,0 +1,10 @@
+{
+  "name": "Finance IA",
+  "short_name": "Finance IA",
+  "description": "Seu livro-caixa pessoal, com uma camada de inteligência.",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#0F211A",
+  "theme_color": "#0F211A",
+  "icons": []
+}
