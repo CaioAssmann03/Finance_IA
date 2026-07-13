@@ -1,5 +1,11 @@
-import { PaginaEmConstrucao } from "@/components/layout/pagina-em-construcao";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 
-export default function Pagina() {
-  return <PaginaEmConstrucao titulo="Extrato" fase="Fase 1" />;
+export default async function RootPage() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  redirect(user ? "/dashboard" : "/login");
 }

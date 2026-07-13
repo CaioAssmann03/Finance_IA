@@ -38,9 +38,9 @@
 ### Páginas
 - [x] `/dashboard` — **funcional de verdade**: busca contas e transações do mês no Supabase, calcula saldo total, receitas, despesas, gasto por categoria (gráfico de pizza com `recharts`) e lista os 5 maiores gastos do mês.
 - [x] `/transacoes/novo` — **funcional de verdade**: formulário de lançamento manual (receita/despesa, valor, categoria, conta, data), grava direto no Supabase.
-- [ ] `/transacoes` (extrato) — **placeholder** ("em construção"). Próximo passo natural.
-- [ ] `/contas` — **placeholder**. Precisa: listar contas, criar/editar conta, mostrar saldo de cada uma.
-- [ ] `/categorias` — **placeholder**. Precisa: listar, criar, editar, excluir categorias.
+- [x] `/contas` — **funcional**: listar, criar (com dia de fechamento/vencimento para cartão de crédito) e excluir contas.
+- [x] `/categorias` — **funcional**: listar (separado em despesas/receitas), criar categoria individual, excluir, e botão "Usar categorias padrão" que cria as 18 categorias sugeridas de uma vez (sem precisar rodar SQL).
+- [ ] `/transacoes` (extrato com filtros) — **placeholder** ("em construção"). Próximo passo natural.
 - [ ] `/metas` — **placeholder** (fase 4 do roadmap, não é prioridade agora).
 - [ ] `/assistente` — **placeholder** (fase 3 do roadmap — depende da API da Anthropic configurada).
 - [ ] `/configuracoes` — **placeholder** (fase 4).
@@ -54,15 +54,16 @@
 
 ## 🔜 Próximos passos (nesta ordem)
 
-1. **Criar o projeto no Supabase** (supabase.com, gratuito) e preencher o `.env.local` com `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-2. Rodar a migration `supabase/migrations/0001_init.sql` no SQL Editor do Supabase.
-3. Criar seu usuário (cadastro pela própria tela `/cadastro`, ou pelo painel do Supabase).
-4. Rodar `0002_seed_categorias.sql` substituindo `:user_id` pelo seu UUID (Supabase > Authentication > Users).
-5. Rodar `npm install` e `npm run dev`, testar login, cadastro e o dashboard.
-6. Construir a página **`/transacoes`** (extrato com filtros) — é a próxima da lista.
-7. Construir a página **`/contas`** (criar/editar contas — hoje não existe nenhuma tela para isso, então o formulário de lançamento fica sem opções até essa tela existir).
-8. Construir a página **`/categorias`**.
-9. Só depois disso partir para IA (categorização automática e assistente).
+1. ~~Criar o projeto no Supabase, preencher `.env.local`, rodar migration~~ — **feito pelo usuário em 12/07/2026**. Repo: https://github.com/CaioAssmann03/Finance_IA
+2. ~~Cadastro de usuário~~ — **feito**.
+3. Cadastrar categorias (usar o botão "Usar categorias padrão" em `/categorias`, não precisa mais rodar `0002_seed_categorias.sql` manualmente).
+4. Cadastrar pelo menos uma conta em `/contas`.
+5. Testar o lançamento de uma transação em `/transacoes/novo` e conferir se aparece no `/dashboard`.
+6. Construir a página **`/transacoes`** (extrato com filtros e edição/exclusão) — é a próxima da lista.
+7. Depois: orçamento por categoria (dashboard já mostra gasto por categoria, falta o limite/alerta).
+8. Só depois disso partir para IA (categorização automática e assistente).
+
+> Nota: `0002_seed_categorias.sql` continua no repo como referência/backup, mas o caminho mais simples agora é o botão dentro do app.
 
 ---
 

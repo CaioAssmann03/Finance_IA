@@ -39,7 +39,12 @@ export default function RootLayout({
       lang="pt-BR"
       className={`${fraunces.variable} ${inter.variable} ${plexMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-bg text-text">{children}</body>
+      <body
+        className="min-h-full flex flex-col bg-bg text-text"
+        suppressHydrationWarning
+      >
+        {children}
+      </body>
     </html>
   );
 }
