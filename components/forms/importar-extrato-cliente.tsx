@@ -7,18 +7,27 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatarMoeda, formatarData } from "@/lib/utils/formatters";
 import { parseOFX, type TransacaoImportada } from "@/lib/importacao/parse-ofx";
-import { lerCsvBruto, paraDataISO, paraNumero, type CsvBruto } from "@/lib/importacao/parse-csv";
+import {
+  lerLinhasBrutas,
+  sugerirLinhaCabecalho,
+  paraDataISO,
+  paraNumero,
+} from "@/lib/importacao/parse-csv";
+import { lerArquivoComCodificacao } from "@/lib/importacao/ler-arquivo";
 import type { Conta, Categoria } from "@/types/database";
 import { Upload, FileText } from "lucide-react";
 import clsx from "clsx";
 
 type Etapa = "upload" | "mapear" | "revisar" | "concluido";
+type ModoValor = "unica" | "duas";
 type ModoTipo = "sinal" | "despesa" | "receita";
 
 interface LinhaPreview extends TransacaoImportada {
   incluir: boolean;
   categoriaId: string;
 }
+
+const SEM_COLUNA = -1;
 
 export function ImportarExtratoCliente({
   contas,
@@ -34,11 +43,15 @@ export function ImportarExtratoCliente({
   const [erro, setErro] = useState<string | null>(null);
   const [nomeArquivo, setNomeArquivo] = useState("");
 
-  const [csvBruto, setCsvBruto] = useState<CsvBruto | null>(null);
+  const [linhasBrutas, setLinhasBrutas] = useState<string[][]>([]);
+  const [indiceCabecalho, setIndiceCabecalho] = useState(0);
   const [colData, setColData] = useState(0);
   const [colDescricao, setColDescricao] = useState(1);
+  const [modoValor, setModoValor] = useState<ModoValor>("unica");
   const [colValor, setColValor] = useState(2);
   const [modoTipo, setModoTipo] = useState<ModoTipo>("sinal");
+  const [colCredito, setColCredito] = useState(SEM_COLUNA);
+  const [colDebito, setColDebito] = useState(SEM_COLUNA);
 
   const [linhas, setLinhas] = useState<LinhaPreview[]>([]);
   const [contaId, setContaId] = useState(contas[0]?.id ?? "");
@@ -47,6 +60,8 @@ export function ImportarExtratoCliente({
 
   const categoriaDespesaPadrao = categorias.find((c) => c.tipo === "despesa")?.id ?? "";
   const categoriaReceitaPadrao = categorias.find((c) => c.tipo === "receita")?.id ?? "";
+  const cabecalhoAtual = linhasBrutas[indiceCabecalho] ?? [];
+  const numColunas = Math.max(...linhasBrutas.slice(0, 20).map((l) => l.length), 1);
 
   function paraLinhasPreview(transacoes: TransacaoImportada[]): LinhaPreview[] {
     return transacoes.map((t) => ({
@@ -62,7 +77,7 @@ export function ImportarExtratoCliente({
     setErro(null);
     setNomeArquivo(arquivo.name);
 
-    const conteudo = await arquivo.text();
+    const conteudo = await lerArquivoComCodificacao(arquivo);
     const ehOfx = /<OFX>/i.test(conteudo) || /\.ofx$/i.test(arquivo.name);
 
     if (ehOfx) {
@@ -73,62 +88,96 @@ export function ImportarExtratoCliente({
       }
       setLinhas(paraLinhasPreview(transacoes));
       setEtapa("revisar");
-    } else {
-      const bruto = lerCsvBruto(conteudo);
-      if (bruto.linhas.length === 0) {
-        setErro("Não consegui ler esse CSV. Confira se o arquivo não está vazio.");
-        return;
-      }
-      setCsvBruto(bruto);
-      // Tenta adivinhar as colunas pelo nome do cabeçalho
-      const idx = (padroes: string[]) =>
-        bruto.cabecalho.findIndex((c) =>
-          padroes.some((p) => c.toLowerCase().includes(p))
-        );
-      const iData = idx(["data", "date"]);
-      const iDesc = idx(["descri", "histór", "historic", "memo", "lançamento"]);
-      const iValor = idx(["valor", "amount", "montante"]);
-      if (iData >= 0) setColData(iData);
-      if (iDesc >= 0) setColDescricao(iDesc);
-      if (iValor >= 0) setColValor(iValor);
-      setEtapa("mapear");
+      return;
     }
+
+    const brutas = lerLinhasBrutas(conteudo);
+    if (brutas.length === 0) {
+      setErro("Não consegui ler esse CSV. Confira se o arquivo não está vazio.");
+      return;
+    }
+
+    const iCabecalho = sugerirLinhaCabecalho(brutas);
+    setLinhasBrutas(brutas);
+    setIndiceCabecalho(iCabecalho);
+
+    const cabecalho = brutas[iCabecalho];
+    const idx = (padroes: string[]) =>
+      cabecalho.findIndex((c) => padroes.some((p) => c.toLowerCase().includes(p)));
+
+    const iData = idx(["data", "date"]);
+    const iDesc = idx(["descri", "histór", "historic", "memo", "lançamento"]);
+    const iCredito = idx(["crédito", "credito", "entrada"]);
+    const iDebito = idx(["débito", "debito", "saída", "saida"]);
+    const iValor = idx(["valor", "amount", "montante"]);
+
+    if (iData >= 0) setColData(iData);
+    if (iDesc >= 0) setColDescricao(iDesc);
+
+    if (iCredito >= 0 && iDebito >= 0) {
+      setModoValor("duas");
+      setColCredito(iCredito);
+      setColDebito(iDebito);
+    } else {
+      setModoValor("unica");
+      if (iValor >= 0) setColValor(iValor);
+    }
+
+    setEtapa("mapear");
   }
 
   function gerarPreviewDoCsv() {
-    if (!csvBruto) return;
     setErro(null);
+    const linhasDeDados = linhasBrutas.slice(indiceCabecalho + 1);
 
     const transacoes: TransacaoImportada[] = [];
-    for (const linha of csvBruto.linhas) {
+    for (const linha of linhasDeDados) {
       const dataTexto = linha[colData];
       const descricaoTexto = linha[colDescricao];
-      const valorTexto = linha[colValor];
-      if (!dataTexto || !valorTexto) continue;
-
       const data = paraDataISO(dataTexto);
-      const valorBruto = paraNumero(valorTexto);
-      if (!data || valorBruto === 0) continue;
+      if (!data) continue; // pula linhas de continuação/detalhe sem data própria
 
-      const tipo: "receita" | "despesa" =
-        modoTipo === "despesa"
-          ? "despesa"
-          : modoTipo === "receita"
-          ? "receita"
-          : valorBruto < 0
-          ? "despesa"
-          : "receita";
+      let valor = 0;
+      let tipo: "receita" | "despesa";
+
+      if (modoValor === "duas") {
+        const credito = paraNumero(linha[colCredito] ?? "");
+        const debito = paraNumero(linha[colDebito] ?? "");
+        if (credito !== 0) {
+          valor = Math.abs(credito);
+          tipo = "receita";
+        } else if (debito !== 0) {
+          valor = Math.abs(debito);
+          tipo = "despesa";
+        } else {
+          continue; // linha sem valor em nenhuma das duas colunas (ex: saldo anterior)
+        }
+      } else {
+        const valorBruto = paraNumero(linha[colValor] ?? "");
+        if (valorBruto === 0) continue;
+        valor = Math.abs(valorBruto);
+        tipo =
+          modoTipo === "despesa"
+            ? "despesa"
+            : modoTipo === "receita"
+            ? "receita"
+            : valorBruto < 0
+            ? "despesa"
+            : "receita";
+      }
 
       transacoes.push({
         data,
-        valor: Math.abs(valorBruto),
+        valor,
         tipo,
         descricao: descricaoTexto || "Lançamento importado",
       });
     }
 
     if (transacoes.length === 0) {
-      setErro("Nenhuma linha válida encontrada com esse mapeamento de colunas.");
+      setErro(
+        "Nenhuma linha válida encontrada. Confira se a linha de cabeçalho e as colunas estão certas."
+      );
       return;
     }
 
@@ -227,47 +276,152 @@ export function ImportarExtratoCliente({
         </Card>
       )}
 
-      {etapa === "mapear" && csvBruto && (
-        <Card className="mx-auto max-w-lg">
+      {etapa === "mapear" && linhasBrutas.length > 0 && (
+        <Card className="mx-auto max-w-3xl">
           <p className="font-medium">Qual coluna é qual, em {nomeArquivo}?</p>
           <p className="mt-1 text-sm text-text-muted">
-            Confira o mapeamento (tentei adivinhar automaticamente).
+            Primeiro confirme qual linha é o cabeçalho de verdade — alguns
+            bancos colocam linhas de título antes da tabela. Cliquei na que
+            pareceu mais provável, mas confira.
           </p>
+
+          <div className="mt-3 flex flex-col gap-1.5">
+            <label className="text-sm text-text-muted">Linha de cabeçalho</label>
+            <select
+              value={indiceCabecalho}
+              onChange={(e) => setIndiceCabecalho(Number(e.target.value))}
+              className="rounded-sm border border-hairline bg-surface px-3 py-2.5 text-sm text-text focus:border-gold focus:outline-none"
+            >
+              {linhasBrutas.slice(0, 8).map((l, i) => (
+                <option key={i} value={i}>
+                  Linha {i + 1}: {l.filter(Boolean).join(" | ").slice(0, 70) || "(vazia)"}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mt-4 overflow-x-auto rounded-md border border-hairline">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-hairline bg-surface-2">
+                  {Array.from({ length: numColunas }).map((_, i) => (
+                    <th
+                      key={i}
+                      className={clsx(
+                        "whitespace-nowrap px-3 py-2 text-left font-medium",
+                        (i === colData ||
+                          i === colDescricao ||
+                          (modoValor === "unica" && i === colValor) ||
+                          (modoValor === "duas" && (i === colCredito || i === colDebito))) &&
+                          "text-gold"
+                      )}
+                    >
+                      {cabecalhoAtual[i] || `Coluna ${i + 1}`}
+                      {i === colData && " (data)"}
+                      {i === colDescricao && " (descrição)"}
+                      {modoValor === "unica" && i === colValor && " (valor)"}
+                      {modoValor === "duas" && i === colCredito && " (crédito)"}
+                      {modoValor === "duas" && i === colDebito && " (débito)"}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {linhasBrutas.slice(indiceCabecalho + 1, indiceCabecalho + 6).map((linha, i) => (
+                  <tr key={i} className="border-b border-hairline last:border-0">
+                    {Array.from({ length: numColunas }).map((_, j) => (
+                      <td
+                        key={j}
+                        className={clsx(
+                          "whitespace-nowrap px-3 py-2",
+                          (j === colData ||
+                            j === colDescricao ||
+                            (modoValor === "unica" && j === colValor) ||
+                            (modoValor === "duas" && (j === colCredito || j === colDebito))) &&
+                            "bg-gold/10"
+                        )}
+                      >
+                        {linha[j] ?? ""}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <div className="mt-4 flex flex-col gap-3">
             <SeletorColuna
               rotulo="Coluna da data"
-              cabecalho={csvBruto.cabecalho}
+              cabecalho={cabecalhoAtual}
+              numColunas={numColunas}
               valor={colData}
               onChange={setColData}
             />
             <SeletorColuna
               rotulo="Coluna da descrição"
-              cabecalho={csvBruto.cabecalho}
+              cabecalho={cabecalhoAtual}
+              numColunas={numColunas}
               valor={colDescricao}
               onChange={setColDescricao}
-            />
-            <SeletorColuna
-              rotulo="Coluna do valor"
-              cabecalho={csvBruto.cabecalho}
-              valor={colValor}
-              onChange={setColValor}
             />
 
             <div className="flex flex-col gap-1.5">
               <label className="text-sm text-text-muted">
-                Como definir receita ou despesa?
+                O valor está numa coluna só, ou separado em Crédito/Débito?
               </label>
               <select
-                value={modoTipo}
-                onChange={(e) => setModoTipo(e.target.value as ModoTipo)}
+                value={modoValor}
+                onChange={(e) => setModoValor(e.target.value as ModoValor)}
                 className="rounded-sm border border-hairline bg-surface px-3 py-2.5 text-text focus:border-gold focus:outline-none"
               >
-                <option value="sinal">Pelo sinal do valor (- despesa, + receita)</option>
-                <option value="despesa">Tudo é despesa (ex: fatura de cartão)</option>
-                <option value="receita">Tudo é receita</option>
+                <option value="unica">Uma coluna só</option>
+                <option value="duas">Duas colunas (Crédito e Débito separados)</option>
               </select>
             </div>
+
+            {modoValor === "unica" ? (
+              <>
+                <SeletorColuna
+                  rotulo="Coluna do valor"
+                  cabecalho={cabecalhoAtual}
+                  numColunas={numColunas}
+                  valor={colValor}
+                  onChange={setColValor}
+                />
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm text-text-muted">
+                    Como definir receita ou despesa?
+                  </label>
+                  <select
+                    value={modoTipo}
+                    onChange={(e) => setModoTipo(e.target.value as ModoTipo)}
+                    className="rounded-sm border border-hairline bg-surface px-3 py-2.5 text-text focus:border-gold focus:outline-none"
+                  >
+                    <option value="sinal">Pelo sinal do valor (- despesa, + receita)</option>
+                    <option value="despesa">Tudo é despesa (ex: fatura de cartão)</option>
+                    <option value="receita">Tudo é receita</option>
+                  </select>
+                </div>
+              </>
+            ) : (
+              <>
+                <SeletorColuna
+                  rotulo="Coluna de Crédito (entradas)"
+                  cabecalho={cabecalhoAtual}
+                  numColunas={numColunas}
+                  valor={colCredito}
+                  onChange={setColCredito}
+                />
+                <SeletorColuna
+                  rotulo="Coluna de Débito (saídas)"
+                  cabecalho={cabecalhoAtual}
+                  numColunas={numColunas}
+                  valor={colDebito}
+                  onChange={setColDebito}
+                />
+              </>
+            )}
           </div>
 
           {erro && <p className="mt-3 text-sm text-brick">{erro}</p>}
@@ -398,11 +552,13 @@ export function ImportarExtratoCliente({
 function SeletorColuna({
   rotulo,
   cabecalho,
+  numColunas,
   valor,
   onChange,
 }: {
   rotulo: string;
   cabecalho: string[];
+  numColunas: number;
   valor: number;
   onChange: (i: number) => void;
 }) {
@@ -414,9 +570,9 @@ function SeletorColuna({
         onChange={(e) => onChange(Number(e.target.value))}
         className="rounded-sm border border-hairline bg-surface px-3 py-2.5 text-text focus:border-gold focus:outline-none"
       >
-        {cabecalho.map((c, i) => (
+        {Array.from({ length: numColunas }).map((_, i) => (
           <option key={i} value={i}>
-            {c || `Coluna ${i + 1}`}
+            {cabecalho[i] || `Coluna ${i + 1}`}
           </option>
         ))}
       </select>
