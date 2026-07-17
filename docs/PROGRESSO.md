@@ -39,8 +39,9 @@
 - [x] `/dashboard` — **funcional de verdade**: busca contas e transações do mês no Supabase, calcula saldo total, receitas, despesas, gasto por categoria (gráfico de pizza com `recharts`) e lista os 5 maiores gastos do mês.
 - [x] `/transacoes/novo` — **funcional de verdade**: formulário de lançamento manual (receita/despesa, valor, categoria, conta, data), grava direto no Supabase.
 - [x] `/contas` — **funcional**: listar, criar (com dia de fechamento/vencimento para cartão de crédito) e excluir contas.
-- [x] `/categorias` — **funcional**: listar (separado em despesas/receitas), criar categoria individual, excluir, e botão "Usar categorias padrão" que cria as 18 categorias sugeridas de uma vez (sem precisar rodar SQL).
-- [ ] `/transacoes` (extrato com filtros) — **placeholder** ("em construção"). Próximo passo natural.
+- [x] `/categorias` — **funcional**: listar (separado em despesas/receitas), criar categoria individual, excluir, botão "Usar categorias padrão", e seção de orçamento mensal por categoria (define limite, some no dashboard).
+- [x] `/transacoes` (extrato) — **funcional**: lista até 500 lançamentos mais recentes, com busca por descrição, filtro por tipo/categoria/conta, edição inline (modal) e exclusão.
+- [x] `/transacoes/recorrentes` — **funcional**: criar/pausar/reativar/excluir contas fixas mensais. Lançamento do mês é gerado automaticamente ao abrir o dashboard.
 - [ ] `/metas` — **placeholder** (fase 4 do roadmap, não é prioridade agora).
 - [ ] `/assistente` — **placeholder** (fase 3 do roadmap — depende da API da Anthropic configurada).
 - [ ] `/configuracoes` — **placeholder** (fase 4).
@@ -54,16 +55,15 @@
 
 ## 🔜 Próximos passos (nesta ordem)
 
-1. ~~Criar o projeto no Supabase, preencher `.env.local`, rodar migration~~ — **feito pelo usuário em 12/07/2026**. Repo: https://github.com/CaioAssmann03/Finance_IA
-2. ~~Cadastro de usuário~~ — **feito**.
-3. Cadastrar categorias (usar o botão "Usar categorias padrão" em `/categorias`, não precisa mais rodar `0002_seed_categorias.sql` manualmente).
-4. Cadastrar pelo menos uma conta em `/contas`.
-5. Testar o lançamento de uma transação em `/transacoes/novo` e conferir se aparece no `/dashboard`.
-6. Construir a página **`/transacoes`** (extrato com filtros e edição/exclusão) — é a próxima da lista.
-7. Depois: orçamento por categoria (dashboard já mostra gasto por categoria, falta o limite/alerta).
-8. Só depois disso partir para IA (categorização automática e assistente).
-
-> Nota: `0002_seed_categorias.sql` continua no repo como referência/backup, mas o caminho mais simples agora é o botão dentro do app.
+1. ~~Setup Supabase + cadastro~~ — **feito**.
+2. ~~Categorias e Contas~~ — **feito**.
+3. ~~Extrato (`/transacoes`) com filtros, edição e exclusão~~ — **feito em 13/07/2026**.
+4. ~~README detalhado do projeto~~ — **feito em 13/07/2026**.
+5. ~~**Transações recorrentes e parceladas**~~ — **feito em 13/07/2026**. Integradas direto no formulário de `/transacoes/novo` (3 modos: Único, Conta fixa, Parcelado). `/transacoes/recorrentes` virou tela só de gerenciamento (pausar/excluir). `lib/recorrentes/gerar-lancamentos-do-mes.ts` continua cobrindo os meses seguintes automaticamente a cada visita ao dashboard.
+6. ~~**Fatura de cartão de crédito**~~ — **feito em 13/07/2026**. Nova rota `/contas/[id]`: se a conta for `cartao_credito`, calcula e mostra a fatura atual e a próxima (com data de fechamento/vencimento e lista de lançamentos de cada uma), usando `lib/cartao/fatura.ts`. Contas comuns mostram só o extrato daquela conta. Cards em `/contas` agora são clicáveis e levam pra essa tela.
+7. ~~**Orçamento por categoria**~~ — **feito em 13/07/2026**. Em `/categorias`, seção "Orçamento mensal por categoria" com input de limite por categoria de despesa (salva ao sair do campo, mês atual). No `/dashboard`, card "Orçamento do mês" com barra de progresso por categoria (verde <80%, dourado 80–100%, vermelho ≥100%, com aviso de texto).
+8. **Metas financeiras** — tela ainda é placeholder (tabela `metas` já existe no banco).
+9. Só depois disso partir para IA (categorização automática por texto livre e o assistente/chat).
 
 ---
 

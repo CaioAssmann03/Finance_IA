@@ -7,14 +7,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { CATEGORIAS_PADRAO } from "@/lib/categorias-padrao";
-import type { Categoria, TipoLancamento } from "@/types/database";
+import { mesReferenciaAtual } from "@/lib/utils/mes-referencia";
+import type { Categoria, Orcamento, TipoLancamento } from "@/types/database";
 import { Plus, Trash2, Sparkles } from "lucide-react";
 import clsx from "clsx";
 
 export function CategoriasCliente({
   categoriasIniciais,
+  orcamentosIniciais,
 }: {
   categoriasIniciais: Categoria[];
+  orcamentosIniciais: Orcamento[];
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -128,18 +131,29 @@ export function CategoriasCliente({
           padrão&quot; para começar rápido, ou crie as suas do zero.
         </div>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2">
-          <ListaCategorias
-            titulo="Despesas"
-            itens={despesas}
-            onExcluir={excluirCategoria}
-          />
-          <ListaCategorias
-            titulo="Receitas"
-            itens={receitas}
-            onExcluir={excluirCategoria}
-          />
-        </div>
+        <>
+          <div className="grid gap-6 sm:grid-cols-2">
+            <ListaCategorias
+              titulo="Despesas"
+              itens={despesas}
+              onExcluir={excluirCategoria}
+            />
+            <ListaCategorias
+              titulo="Receitas"
+              itens={receitas}
+              onExcluir={excluirCategoria}
+            />
+          </div>
+
+          {despesas.length > 0 && (
+            <div className="mt-8">
+              <OrcamentoMensal
+                categoriasDespesa={despesas}
+                orcamentosIniciais={orcamentosIniciais}
+              />
+            </div>
+          )}
+        </>
       )}
 
       <Modal
@@ -228,6 +242,101 @@ function ListaCategorias({
             </li>
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+function OrcamentoMensal({
+  categoriasDespesa,
+  orcamentosIniciais,
+}: {
+  categoriasDespesa: Categoria[];
+  orcamentosIniciais: Orcamento[];
+}) {
+  const supabase = createClient();
+  const mesReferencia = mesReferenciaAtual();
+
+  const [valores, setValores] = useState<Record<string, string>>(() => {
+    const mapa: Record<string, string> = {};
+    for (const o of orcamentosIniciais) {
+      mapa[o.categoria_id] = String(o.valor_limite);
+    }
+    return mapa;
+  });
+  const [salvandoId, setSalvandoId] = useState<string | null>(null);
+
+  async function salvarLimite(categoriaId: string) {
+    const texto = valores[categoriaId];
+    const numero = Number((texto ?? "").replace(",", "."));
+
+    setSalvandoId(categoriaId);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!texto || numero <= 0) {
+      // limite vazio ou zero = remover orçamento dessa categoria no mês
+      await supabase
+        .from("orcamentos")
+        .delete()
+        .eq("categoria_id", categoriaId)
+        .eq("mes_referencia", mesReferencia);
+      setSalvandoId(null);
+      return;
+    }
+
+    await supabase.from("orcamentos").upsert(
+      {
+        user_id: user!.id,
+        categoria_id: categoriaId,
+        mes_referencia: mesReferencia,
+        valor_limite: numero,
+      },
+      { onConflict: "user_id,categoria_id,mes_referencia" }
+    );
+
+    setSalvandoId(null);
+  }
+
+  return (
+    <div>
+      <p className="mb-3 text-xs uppercase tracking-wide text-text-muted">
+        Orçamento mensal por categoria
+      </p>
+      <p className="mb-4 text-sm text-text-muted">
+        Defina um limite de gasto para o mês atual. Deixe em branco para não
+        ter limite nessa categoria. O progresso aparece no dashboard.
+      </p>
+      <ul className="flex flex-col divide-y divide-hairline rounded-md border border-hairline">
+        {categoriasDespesa.map((cat) => (
+          <li
+            key={cat.id}
+            className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
+          >
+            <span className="flex items-center gap-2">
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ background: cat.cor }}
+              />
+              {cat.nome}
+            </span>
+            <input
+              inputMode="decimal"
+              placeholder="Sem limite"
+              value={valores[cat.id] ?? ""}
+              onChange={(e) =>
+                setValores((atual) => ({ ...atual, [cat.id]: e.target.value }))
+              }
+              onBlur={() => salvarLimite(cat.id)}
+              className="w-28 rounded-sm border border-hairline bg-surface px-2 py-1.5 text-right text-sm text-text placeholder:text-text-muted/60 focus:border-gold focus:outline-none"
+            />
+          </li>
+        ))}
+      </ul>
+      {salvandoId && (
+        <p className="mt-2 text-xs text-text-muted">Salvando...</p>
       )}
     </div>
   );

@@ -1,0 +1,125 @@
+# Funcionalidades Realizadas — Finance IA
+
+> Última atualização: 13/07/2026. Este documento descreve, em detalhe, tudo o que já foi construído e está funcionando no projeto. Para a lista de pendências e próximos passos, veja `docs/PROGRESSO.md`. Para a visão de produto original, veja `docs/01-prd-visao-geral.md`.
+
+---
+
+## 1. Autenticação
+
+- **Cadastro** (`/cadastro`): criação de conta por e-mail e senha via Supabase Auth. Após cadastrar, mostra tela pedindo para confirmar o e-mail antes do primeiro login.
+- **Login** (`/login`): autenticação por e-mail e senha.
+- **Proteção de rotas**: todas as telas internas (grupo `(app)`) verificam a sessão no servidor antes de renderizar — se não houver usuário autenticado, redireciona para `/login`.
+- **Renovação de sessão**: middleware que atualiza o token do Supabase em toda requisição, evitando logout inesperado.
+
+---
+
+## 2. Contas e Carteiras (`/contas`)
+
+- Listagem de todas as contas cadastradas, em cards.
+- Criação de conta com: nome, tipo (conta corrente, poupança, dinheiro, cartão de crédito) e saldo inicial.
+- Campos extras para cartão de crédito: dia de fechamento e dia de vencimento da fatura.
+- Exclusão de conta.
+- Cada card é clicável e leva à tela de detalhe da conta (ver item 8 — Fatura de Cartão).
+
+---
+
+## 3. Categorias (`/categorias`)
+
+- Listagem separada em duas colunas: Despesas e Receitas.
+- Criação de categoria individual (nome + tipo).
+- Botão **"Usar categorias padrão"**: cria de uma vez 18 categorias pré-definidas (13 de despesa, 5 de receita) — evita começar do zero.
+- Exclusão de categoria (bloqueada pelo banco se já houver transações usando ela, com aviso ao usuário).
+- **Orçamento mensal por categoria** (ver item 7).
+
+---
+
+## 4. Lançamento de Transações (`/transacoes/novo`)
+
+Formulário único com **3 modos de lançamento**, selecionáveis no topo:
+
+### 4.1 Único
+Lançamento normal: tipo (receita/despesa), valor, descrição, categoria, conta e data.
+
+### 4.2 Conta fixa (recorrente)
+Em vez de uma data específica, pede o **dia do mês** em que a cobrança acontece (ex: "todo dia 5"). Ao salvar:
+- Cria um registro na tabela `transacoes_recorrentes`.
+- Já lança imediatamente a ocorrência do mês atual (não precisa esperar o próximo mês).
+- Nos meses seguintes, o lançamento é criado automaticamente (ver item 6).
+
+### 4.3 Parcelado
+Pede a **parcela atual** e o **total de parcelas** (ex: 3 de 10, se a compra já vinha sendo paga fora do app). Ao salvar, gera de uma vez todos os lançamentos da parcela atual até a última, um por mês, cada um com a descrição marcada (ex: "Notebook (3/10)") e vinculados por um `grupo_parcela_id` em comum.
+
+---
+
+## 5. Extrato (`/transacoes`)
+
+- Lista até 500 lançamentos mais recentes.
+- **Filtros**: busca por texto na descrição, tipo (receita/despesa/todos), categoria, conta — todos combináveis.
+- Mostra a soma dos valores filtrados no topo da lista (respeitando o sinal de receita/despesa).
+- **Edição**: clique no ícone de lápis abre um modal para editar qualquer campo do lançamento.
+- **Exclusão**: clique no ícone de lixeira, com confirmação.
+- Atalho no cabeçalho para a tela de **Contas fixas**.
+
+---
+
+## 6. Transações Recorrentes — Gerenciamento (`/transacoes/recorrentes`)
+
+- Lista todas as contas fixas cadastradas, com valor, dia do mês, categoria e conta.
+- **Pausar/reativar**: uma recorrência pausada para de gerar lançamentos automaticamente, sem precisar excluir o cadastro (útil para assinaturas canceladas temporariamente).
+- **Excluir**: remove a recorrência (os lançamentos já criados por ela no passado continuam existindo).
+- **Geração automática**: a função `lib/recorrentes/gerar-lancamentos-do-mes.ts` roda toda vez que o `/dashboard` é aberto. Ela verifica cada recorrência ativa e, se ainda não existir um lançamento dela para o mês atual, cria automaticamente — sem duplicar, mesmo abrindo o app várias vezes no mesmo mês.
+
+---
+
+## 7. Orçamento por Categoria
+
+- Em `/categorias`, seção **"Orçamento mensal por categoria"**: um campo de valor ao lado de cada categoria de despesa. Ao sair do campo (perder o foco), o limite é salvo automaticamente para o mês atual. Deixar em branco remove o limite daquela categoria.
+- No `/dashboard`, card **"Orçamento do mês"**: para cada categoria com limite definido, mostra uma barra de progresso comparando o gasto atual com o limite:
+  - Verde: abaixo de 80% do limite.
+  - Dourado: entre 80% e 100% — aviso "Perto do limite".
+  - Vermelho: 100% ou mais — aviso "Orçamento estourado".
+
+---
+
+## 8. Fatura de Cartão de Crédito (`/contas/[id]`)
+
+- Ao clicar em uma conta do tipo **cartão de crédito**, abre uma tela de detalhe com dois cards lado a lado:
+  - **Fatura atual**: soma das despesas do ciclo em aberto, com data de fechamento e vencimento, e a lista de lançamentos daquele período.
+  - **Próxima fatura**: mesma informação para o ciclo seguinte, que ainda está acumulando.
+- O cálculo do período de cada fatura é feito em `lib/cartao/fatura.ts`, a partir do dia de fechamento e vencimento cadastrados na conta — incluindo o tratamento de meses com menos dias (ex: fechamento configurado no dia 31 num mês de 30 dias).
+- Para contas que não são cartão de crédito, a mesma rota mostra simplesmente o extrato daquela conta.
+
+---
+
+## 9. Dashboard (`/dashboard`)
+
+- **Saldo total**: soma de todas as contas, considerando saldo inicial + todas as movimentações.
+- **Receitas do mês** e **Despesas do mês**, em destaque.
+- **Gráfico de gastos por categoria** (pizza/donut), com legenda mostrando valor por categoria.
+- **Maiores gastos do mês**: lista dos 5 lançamentos de maior valor.
+- **Orçamento do mês**: barras de progresso por categoria (ver item 7).
+- Atalho direto para lançar uma nova transação.
+- Antes de montar a tela, dispara a geração automática de lançamentos recorrentes do mês (ver item 6).
+
+---
+
+## 10. Identidade Visual e Base Técnica
+
+- Tema visual próprio ("livro-caixa"/ledger): fundo em tom de tinta verde-escura, dourado para valores e destaque, verde-sálvia para receitas, terracota para despesas.
+- Tipografia: Fraunces (títulos), Inter (corpo), IBM Plex Mono (valores numéricos).
+- Elemento assinatura "ledger row": linha com guia pontilhada entre rótulo e valor, usada em listas de lançamentos.
+- Layout responsivo: navegação lateral no desktop, barra inferior no celular.
+- Banco de dados: todas as tabelas com Row Level Security (RLS) — cada usuário só acessa seus próprios dados, mesmo sendo uso pessoal.
+- Qualidade de código: `npx tsc --noEmit` e `npx eslint .` passam sem erros a cada funcionalidade entregue.
+
+---
+
+## O que ainda não existe
+
+Ver a lista completa e ordenada em [`docs/PROGRESSO.md`](./PROGRESSO.md), seção "Próximos passos". Resumo do que falta:
+
+- Metas financeiras (tela).
+- Assistente com IA (categorização automática por texto livre e chat de perguntas).
+- PWA instalável no celular (ícones e manifest completos).
+- Exportação de dados (CSV).
+- Notificações (contas a vencer, orçamento estourado).

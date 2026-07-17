@@ -10,6 +10,7 @@ import { Modal } from "@/components/ui/modal";
 import { formatarMoeda } from "@/lib/utils/formatters";
 import type { Conta, TipoConta } from "@/types/database";
 import { Plus, Trash2, Wallet, CreditCard, Banknote, PiggyBank } from "lucide-react";
+import Link from "next/link";
 
 const ICONES_TIPO: Record<TipoConta, typeof Wallet> = {
   corrente: Wallet,
@@ -133,20 +134,22 @@ export function ContasCliente({ contasIniciais }: { contasIniciais: Conta[] }) {
                 >
                   <Trash2 size={16} />
                 </button>
-                <Icone size={20} className="text-gold" strokeWidth={1.75} />
-                <p className="mt-3 font-medium">{conta.nome}</p>
-                <p className="text-xs text-text-muted">
-                  {LABEL_TIPO[conta.tipo]}
-                </p>
-                <p className="mt-3 font-[family-name:var(--font-numeric)] text-xl">
-                  {formatarMoeda(conta.saldo_inicial)}
-                </p>
-                {conta.tipo === "cartao_credito" && (
-                  <p className="mt-1 text-xs text-text-muted">
-                    Fecha dia {conta.dia_fechamento} · Vence dia{" "}
-                    {conta.dia_vencimento}
+                <Link href={`/contas/${conta.id}`} className="block">
+                  <Icone size={20} className="text-gold" strokeWidth={1.75} />
+                  <p className="mt-3 font-medium">{conta.nome}</p>
+                  <p className="text-xs text-text-muted">
+                    {LABEL_TIPO[conta.tipo]}
                   </p>
-                )}
+                  <p className="mt-3 font-[family-name:var(--font-numeric)] text-xl">
+                    {formatarMoeda(conta.saldo_inicial)}
+                  </p>
+                  {conta.tipo === "cartao_credito" && (
+                    <p className="mt-1 text-xs text-text-muted">
+                      Fecha dia {conta.dia_fechamento} · Vence dia{" "}
+                      {conta.dia_vencimento}
+                    </p>
+                  )}
+                </Link>
               </Card>
             );
           })}

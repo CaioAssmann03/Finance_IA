@@ -3,9 +3,12 @@ import { CabecalhoPagina } from "@/components/layout/cabecalho-pagina";
 import { Card } from "@/components/ui/card";
 import { GraficoCategorias } from "@/components/charts/grafico-categorias";
 import { formatarMoeda, nomeDoMes, formatarData } from "@/lib/utils/formatters";
-import type { Conta, Transacao, Categoria } from "@/types/database";
+import { gerarLancamentosDoMes } from "@/lib/recorrentes/gerar-lancamentos-do-mes";
+import { mesReferenciaAtual } from "@/lib/utils/mes-referencia";
+import type { Conta, Transacao, Categoria, Orcamento } from "@/types/database";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import clsx from "clsx";
 
 function inicioFimDoMes() {
   const hoje = new Date();
@@ -19,9 +22,17 @@ function inicioFimDoMes() {
 
 export default async function DashboardPage() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    await gerarLancamentosDoMes(supabase, user.id);
+  }
+
   const { inicio, fim } = inicioFimDoMes();
 
-  const [{ data: contas }, { data: transacoesMes }, { data: categorias }] =
+  const [{ data: contas }, { data: transacoesMes }, { data: categorias }, { data: orcamentos }] =
     await Promise.all([
       supabase.from("contas").select("*").returns<Conta[]>(),
       supabase
@@ -32,6 +43,11 @@ export default async function DashboardPage() {
         .order("data", { ascending: false })
         .returns<Transacao[]>(),
       supabase.from("categorias").select("*").returns<Categoria[]>(),
+      supabase
+        .from("orcamentos")
+        .select("*")
+        .eq("mes_referencia", mesReferenciaAtual())
+        .returns<Orcamento[]>(),
     ]);
 
   const listaContas = contas ?? [];
@@ -72,6 +88,24 @@ export default async function DashboardPage() {
     .filter((t) => t.tipo === "despesa")
     .sort((a, b) => b.valor - a.valor)
     .slice(0, 5);
+
+  const listaOrcamentos = orcamentos ?? [];
+  const orcamentoPorCategoria = listaOrcamentos
+    .map((orc) => {
+      const categoria = listaCategorias.find((c) => c.id === orc.categoria_id);
+      const gasto = listaTransacoes
+        .filter((t) => t.categoria_id === orc.categoria_id && t.tipo === "despesa")
+        .reduce((s, t) => s + t.valor, 0);
+      const percentual = orc.valor_limite > 0 ? (gasto / orc.valor_limite) * 100 : 0;
+      return {
+        nome: categoria?.nome ?? "—",
+        cor: categoria?.cor ?? "#6B6B6B",
+        gasto,
+        limite: orc.valor_limite,
+        percentual,
+      };
+    })
+    .sort((a, b) => b.percentual - a.percentual);
 
   return (
     <div>
@@ -148,6 +182,53 @@ export default async function DashboardPage() {
           )}
         </Card>
       </div>
+
+      {orcamentoPorCategoria.length > 0 && (
+        <div className="mt-6 px-5 md:px-8">
+          <Card>
+            <p className="mb-4 text-sm text-text-muted">Orçamento do mês</p>
+            <ul className="flex flex-col gap-4">
+              {orcamentoPorCategoria.map((o) => (
+                <li key={o.nome}>
+                  <div className="mb-1.5 flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ background: o.cor }}
+                      />
+                      {o.nome}
+                    </span>
+                    <span className="tabular text-text-muted">
+                      {formatarMoeda(o.gasto)} / {formatarMoeda(o.limite)}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-surface-2">
+                    <div
+                      className={clsx(
+                        "h-full rounded-full transition-all",
+                        o.percentual < 80 && "bg-sage",
+                        o.percentual >= 80 && o.percentual < 100 && "bg-gold",
+                        o.percentual >= 100 && "bg-brick"
+                      )}
+                      style={{ width: `${Math.min(o.percentual, 100)}%` }}
+                    />
+                  </div>
+                  {o.percentual >= 100 && (
+                    <p className="mt-1 text-xs text-brick">
+                      Orçamento estourado.
+                    </p>
+                  )}
+                  {o.percentual >= 80 && o.percentual < 100 && (
+                    <p className="mt-1 text-xs text-gold">
+                      Perto do limite.
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

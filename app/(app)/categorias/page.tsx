@@ -1,15 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
 import { CabecalhoPagina } from "@/components/layout/cabecalho-pagina";
 import { CategoriasCliente } from "@/components/forms/categorias-cliente";
-import type { Categoria } from "@/types/database";
+import { mesReferenciaAtual } from "@/lib/utils/mes-referencia";
+import type { Categoria, Orcamento } from "@/types/database";
 
 export default async function CategoriasPage() {
   const supabase = await createClient();
-  const { data: categorias } = await supabase
-    .from("categorias")
-    .select("*")
-    .order("nome")
-    .returns<Categoria[]>();
+
+  const [{ data: categorias }, { data: orcamentos }] = await Promise.all([
+    supabase.from("categorias").select("*").order("nome").returns<Categoria[]>(),
+    supabase
+      .from("orcamentos")
+      .select("*")
+      .eq("mes_referencia", mesReferenciaAtual())
+      .returns<Orcamento[]>(),
+  ]);
 
   return (
     <div>
@@ -17,7 +22,10 @@ export default async function CategoriasPage() {
         titulo="Categorias"
         subtitulo="Organize receitas e despesas"
       />
-      <CategoriasCliente categoriasIniciais={categorias ?? []} />
+      <CategoriasCliente
+        categoriasIniciais={categorias ?? []}
+        orcamentosIniciais={orcamentos ?? []}
+      />
     </div>
   );
 }
