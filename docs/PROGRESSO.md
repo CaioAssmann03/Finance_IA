@@ -40,10 +40,12 @@
 - [x] `/transacoes/novo` — **funcional de verdade**: formulário de lançamento manual (receita/despesa, valor, categoria, conta, data), grava direto no Supabase.
 - [x] `/contas` — **funcional**: listar, criar (com dia de fechamento/vencimento para cartão de crédito) e excluir contas.
 - [x] `/categorias` — **funcional**: listar (separado em despesas/receitas), criar categoria individual, excluir, botão "Usar categorias padrão", e seção de orçamento mensal por categoria (define limite, some no dashboard).
-- [x] `/transacoes` (extrato) — **funcional**: lista até 500 lançamentos mais recentes, com busca por descrição, filtro por tipo/categoria/conta, edição inline (modal) e exclusão.
+- [x] `/transacoes` (extrato) — **funcional**: lista até 500 lançamentos mais recentes, com filtro por mês (padrão: mês atual), busca por descrição, filtro por tipo/categoria/conta, edição inline (modal) e exclusão. Parcelas do mesmo grupo (`grupo_parcela_id`) são agrupadas numa única linha expansível quando o filtro está em "Todos os meses", evitando poluir a lista com uma linha por parcela.
 - [x] `/transacoes/recorrentes` — **funcional**: criar/pausar/reativar/excluir contas fixas mensais. Lançamento do mês é gerado automaticamente ao abrir o dashboard.
-- [ ] `/metas` — **placeholder** (fase 4 do roadmap, não é prioridade agora).
-- [ ] `/assistente` — **placeholder** (fase 3 do roadmap — depende da API da Anthropic configurada).
+- [x] `/transacoes/importar` — **funcional**: importa extrato bancário/fatura em OFX (parser próprio, sem lib externa) ou CSV genérico (com mapeamento manual de colunas + Papaparse). Prévia com checkbox por linha, categoria por linha (com atalho pra aplicar a mesma categoria a todas de uma vez), conta única pra todo o lote, e inserção em massa no Supabase.
+- [x] Exportar CSV — botão "Exportar CSV" no Extrato, exporta exatamente o que está filtrado na tela (respeita filtro de mês/tipo/categoria/conta/busca), formato pt-BR (`;` como separador, vírgula decimal), pronto pra abrir no Excel/Google Sheets.
+- [x] `/metas` — **funcional**: criar meta (nome, valor alvo, data alvo opcional), adicionar valor aos poucos (aporte), barra de progresso, marca como concluída ao atingir 100%, excluir.
+- [x] `/assistente` — **funcional**: chat com sugestões de pergunta prontas, envia a pergunta pra `/api/ia/perguntar`, que monta o contexto (mês atual, mês anterior, contas fixas ativas) no servidor e manda pra Claude Haiku responder só com base nesses números reais.
 - [ ] `/configuracoes` — **placeholder** (fase 4).
 
 ### Qualidade
@@ -62,8 +64,11 @@
 5. ~~**Transações recorrentes e parceladas**~~ — **feito em 13/07/2026**. Integradas direto no formulário de `/transacoes/novo` (3 modos: Único, Conta fixa, Parcelado). `/transacoes/recorrentes` virou tela só de gerenciamento (pausar/excluir). `lib/recorrentes/gerar-lancamentos-do-mes.ts` continua cobrindo os meses seguintes automaticamente a cada visita ao dashboard.
 6. ~~**Fatura de cartão de crédito**~~ — **feito em 13/07/2026**. Nova rota `/contas/[id]`: se a conta for `cartao_credito`, calcula e mostra a fatura atual e a próxima (com data de fechamento/vencimento e lista de lançamentos de cada uma), usando `lib/cartao/fatura.ts`. Contas comuns mostram só o extrato daquela conta. Cards em `/contas` agora são clicáveis e levam pra essa tela.
 7. ~~**Orçamento por categoria**~~ — **feito em 13/07/2026**. Em `/categorias`, seção "Orçamento mensal por categoria" com input de limite por categoria de despesa (salva ao sair do campo, mês atual). No `/dashboard`, card "Orçamento do mês" com barra de progresso por categoria (verde <80%, dourado 80–100%, vermelho ≥100%, com aviso de texto).
-8. **Metas financeiras** — tela ainda é placeholder (tabela `metas` já existe no banco).
-9. Só depois disso partir para IA (categorização automática por texto livre e o assistente/chat).
+8. ~~**Metas financeiras**~~ — **feito em 13/07/2026**. Tela `/metas`: criar, adicionar valor aos poucos, barra de progresso, excluir.
+9. ~~Categorização automática por texto livre e assistente/chat~~ — **feito em 13/07/2026**.
+10. **Requer configurar `ANTHROPIC_API_KEY` no `.env.local`** para essas duas funcionalidades funcionarem (categorização e assistente) — sem a chave, elas mostram um erro claro pedindo pra configurar.
+11. ~~Exportação CSV~~ e ~~Importação de extrato (OFX/CSV)~~ — **feito em 14/07/2026**.
+12. PWA instalável no celular, notificações — polimento final, sem urgência.
 
 ---
 

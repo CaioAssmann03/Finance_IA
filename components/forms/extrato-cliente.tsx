@@ -8,8 +8,57 @@ import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { formatarMoeda, formatarData } from "@/lib/utils/formatters";
 import type { Conta, Categoria, Transacao, TipoLancamento } from "@/types/database";
-import { Trash2, Pencil, Search } from "lucide-react";
+import { Trash2, Pencil, Search, ChevronDown, ChevronRight, Layers, Download } from "lucide-react";
 import clsx from "clsx";
+
+const SUFIXO_PARCELA = /\s*\(\d+\/\d+\)\s*$/;
+
+function rotuloMes(chaveMes: string): string {
+  const [ano, mes] = chaveMes.split("-").map(Number);
+  const rotulo = new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+  return rotulo.charAt(0).toUpperCase() + rotulo.slice(1);
+}
+
+function chaveMesAtual(): string {
+  const hoje = new Date();
+  return `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, "0")}`;
+}
+
+interface GrupoParcelas {
+  grupo: true;
+  id: string;
+  itens: Transacao[];
+}
+
+type ItemExibido = Transacao | GrupoParcelas;
+
+function ehGrupo(item: ItemExibido): item is GrupoParcelas {
+  return "grupo" in item;
+}
+
+/** Junta lançamentos com o mesmo grupo_parcela_id numa única entrada, mantendo
+ * a posição da ocorrência mais recente (a lista de entrada já vem ordenada
+ * por data decrescente). */
+function agruparParcelas(lista: Transacao[]): ItemExibido[] {
+  const vistos = new Set<string>();
+  const resultado: ItemExibido[] = [];
+
+  for (const t of lista) {
+    if (t.grupo_parcela_id) {
+      if (vistos.has(t.grupo_parcela_id)) continue;
+      vistos.add(t.grupo_parcela_id);
+      const itens = lista.filter((x) => x.grupo_parcela_id === t.grupo_parcela_id);
+      resultado.push({ grupo: true, id: t.grupo_parcela_id, itens });
+    } else {
+      resultado.push(t);
+    }
+  }
+
+  return resultado;
+}
 
 export function ExtratoCliente({
   transacoesIniciais,
@@ -29,6 +78,7 @@ export function ExtratoCliente({
   const [filtroConta, setFiltroConta] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<"todos" | TipoLancamento>("todos");
   const [editando, setEditando] = useState<Transacao | null>(null);
+  const [gruposAbertos, setGruposAbertos] = useState<Set<string>>(new Set());
 
   const mapaCategorias = useMemo(
     () => new Map(categorias.map((c) => [c.id, c])),
@@ -36,7 +86,20 @@ export function ExtratoCliente({
   );
   const mapaContas = useMemo(() => new Map(contas.map((c) => [c.id, c])), [contas]);
 
+  // Meses com pelo menos um lançamento, do mais recente para o mais antigo
+  const mesesDisponiveis = useMemo(() => {
+    const chaves = new Set(transacoes.map((t) => t.data.slice(0, 7)));
+    return Array.from(chaves).sort((a, b) => (a < b ? 1 : -1));
+  }, [transacoes]);
+
+  const [filtroMes, setFiltroMes] = useState<string>(() => {
+    const atual = chaveMesAtual();
+    const chaves = new Set(transacoesIniciais.map((t) => t.data.slice(0, 7)));
+    return chaves.has(atual) ? atual : "todos";
+  });
+
   const filtradas = transacoes.filter((t) => {
+    if (filtroMes !== "todos" && t.data.slice(0, 7) !== filtroMes) return false;
     if (filtroTipo !== "todos" && t.tipo !== filtroTipo) return false;
     if (filtroCategoria && t.categoria_id !== filtroCategoria) return false;
     if (filtroConta && t.conta_id !== filtroConta) return false;
@@ -50,6 +113,11 @@ export function ExtratoCliente({
     0
   );
 
+  // Só agrupa parcelas quando não há um mês específico selecionado — dentro de
+  // um único mês normalmente só existe uma ocorrência de cada grupo mesmo.
+  const itensExibidos =
+    filtroMes === "todos" ? agruparParcelas(filtradas) : filtradas;
+
   async function excluir(id: string) {
     if (!confirm("Excluir este lançamento?")) return;
     const { error } = await supabase.from("transacoes").delete().eq("id", id);
@@ -59,10 +127,69 @@ export function ExtratoCliente({
     }
   }
 
+  async function excluirGrupoInteiro(grupoParcelaId: string) {
+    if (
+      !confirm(
+        "Excluir TODAS as parcelas deste grupo? Isso apaga o lançamento inteiro, passado e futuro."
+      )
+    )
+      return;
+    const { error } = await supabase
+      .from("transacoes")
+      .delete()
+      .eq("grupo_parcela_id", grupoParcelaId);
+    if (!error) {
+      setTransacoes((atual) =>
+        atual.filter((t) => t.grupo_parcela_id !== grupoParcelaId)
+      );
+      router.refresh();
+    }
+  }
+
   function atualizarNaLista(atualizada: Transacao) {
     setTransacoes((atual) =>
       atual.map((t) => (t.id === atualizada.id ? atualizada : t))
     );
+  }
+
+  function alternarGrupo(id: string) {
+    setGruposAbertos((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(id)) {
+        novo.delete(id);
+      } else {
+        novo.add(id);
+      }
+      return novo;
+    });
+  }
+
+  function exportarCsv() {
+    const cabecalho = ["Data", "Tipo", "Categoria", "Conta", "Descrição", "Valor"];
+    const linhas = filtradas.map((t) => {
+      const categoria = mapaCategorias.get(t.categoria_id)?.nome ?? "";
+      const conta = mapaContas.get(t.conta_id)?.nome ?? "";
+      const valor = t.tipo === "receita" ? t.valor : -t.valor;
+      const escapar = (texto: string) => `"${texto.replace(/"/g, '""')}"`;
+      return [
+        t.data,
+        t.tipo,
+        escapar(categoria),
+        escapar(conta),
+        escapar(t.descricao ?? ""),
+        String(valor).replace(".", ","),
+      ].join(";");
+    });
+
+    const csv = [cabecalho.join(";"), ...linhas].join("\r\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const sufixo = filtroMes === "todos" ? "todos-os-meses" : filtroMes;
+    a.href = url;
+    a.download = `finance-ia-extrato-${sufixo}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   return (
@@ -81,6 +208,19 @@ export function ExtratoCliente({
             className="w-full rounded-sm border border-hairline bg-surface py-2.5 pl-9 pr-3 text-sm text-text placeholder:text-text-muted/60 focus:border-gold focus:outline-none"
           />
         </div>
+
+        <select
+          value={filtroMes}
+          onChange={(e) => setFiltroMes(e.target.value)}
+          className="rounded-sm border border-hairline bg-surface px-3 py-2.5 text-sm text-text focus:border-gold focus:outline-none"
+        >
+          <option value="todos">Todos os meses</option>
+          {mesesDisponiveis.map((mes) => (
+            <option key={mes} value={mes}>
+              {rotuloMes(mes)}
+            </option>
+          ))}
+        </select>
 
         <select
           value={filtroTipo}
@@ -122,73 +262,57 @@ export function ExtratoCliente({
       {/* Resumo do filtro atual */}
       <div className="mb-4 flex items-center justify-between text-sm text-text-muted">
         <span>{filtradas.length} lançamento(s)</span>
-        <span
-          className={clsx(
-            "tabular font-medium",
-            totalFiltrado >= 0 ? "text-sage" : "text-brick"
-          )}
-        >
-          {formatarMoeda(totalFiltrado)}
-        </span>
+        <div className="flex items-center gap-3">
+          <span
+            className={clsx(
+              "tabular font-medium",
+              totalFiltrado >= 0 ? "text-sage" : "text-brick"
+            )}
+          >
+            {formatarMoeda(totalFiltrado)}
+          </span>
+          <button
+            onClick={exportarCsv}
+            disabled={filtradas.length === 0}
+            className="flex items-center gap-1.5 text-xs text-text-muted hover:text-gold disabled:opacity-40"
+          >
+            <Download size={13} />
+            Exportar CSV
+          </button>
+        </div>
       </div>
 
       {/* Lista */}
-      {filtradas.length === 0 ? (
+      {itensExibidos.length === 0 ? (
         <div className="rounded-md border border-dashed border-hairline p-10 text-center text-sm text-text-muted">
           Nenhum lançamento encontrado com esses filtros.
         </div>
       ) : (
         <ul className="flex flex-col divide-y divide-hairline rounded-md border border-hairline">
-          {filtradas.map((t) => {
-            const categoria = mapaCategorias.get(t.categoria_id);
-            const conta = mapaContas.get(t.conta_id);
-            return (
-              <li
-                key={t.id}
-                className="flex items-center justify-between gap-3 px-4 py-3 text-sm"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: categoria?.cor ?? "#6B6B6B" }}
-                  />
-                  <div className="min-w-0">
-                    <p className="truncate">{t.descricao || "Sem descrição"}</p>
-                    <p className="truncate text-xs text-text-muted">
-                      {formatarData(t.data)} · {categoria?.nome ?? "—"} ·{" "}
-                      {conta?.nome ?? "—"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-3">
-                  <span
-                    className={clsx(
-                      "tabular",
-                      t.tipo === "receita" ? "text-sage" : "text-brick"
-                    )}
-                  >
-                    {t.tipo === "receita" ? "+" : "-"}
-                    {formatarMoeda(t.valor)}
-                  </span>
-                  <button
-                    onClick={() => setEditando(t)}
-                    className="text-text-muted hover:text-gold"
-                    aria-label="Editar"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    onClick={() => excluir(t.id)}
-                    className="text-text-muted hover:text-brick"
-                    aria-label="Excluir"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </li>
-            );
-          })}
+          {itensExibidos.map((item) =>
+            ehGrupo(item) ? (
+              <GrupoParcelasItem
+                key={item.id}
+                grupo={item}
+                aberto={gruposAbertos.has(item.id)}
+                onAlternar={() => alternarGrupo(item.id)}
+                mapaCategorias={mapaCategorias}
+                mapaContas={mapaContas}
+                onEditar={setEditando}
+                onExcluirUm={excluir}
+                onExcluirGrupo={excluirGrupoInteiro}
+              />
+            ) : (
+              <LinhaTransacao
+                key={item.id}
+                t={item}
+                mapaCategorias={mapaCategorias}
+                mapaContas={mapaContas}
+                onEditar={() => setEditando(item)}
+                onExcluir={() => excluir(item.id)}
+              />
+            )
+          )}
         </ul>
       )}
 
@@ -206,6 +330,168 @@ export function ExtratoCliente({
         />
       )}
     </div>
+  );
+}
+
+function LinhaTransacao({
+  t,
+  mapaCategorias,
+  mapaContas,
+  onEditar,
+  onExcluir,
+  indentado = false,
+}: {
+  t: Transacao;
+  mapaCategorias: Map<string, Categoria>;
+  mapaContas: Map<string, Conta>;
+  onEditar: () => void;
+  onExcluir: () => void;
+  indentado?: boolean;
+}) {
+  const categoria = mapaCategorias.get(t.categoria_id);
+  const conta = mapaContas.get(t.conta_id);
+
+  return (
+    <li
+      className={clsx(
+        "flex items-center justify-between gap-3 px-4 py-3 text-sm",
+        indentado && "bg-bg/40 pl-10"
+      )}
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <span
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ background: categoria?.cor ?? "#6B6B6B" }}
+        />
+        <div className="min-w-0">
+          <p className="truncate">{t.descricao || "Sem descrição"}</p>
+          <p className="truncate text-xs text-text-muted">
+            {formatarData(t.data)} · {categoria?.nome ?? "—"} ·{" "}
+            {conta?.nome ?? "—"}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-3">
+        <span
+          className={clsx(
+            "tabular",
+            t.tipo === "receita" ? "text-sage" : "text-brick"
+          )}
+        >
+          {t.tipo === "receita" ? "+" : "-"}
+          {formatarMoeda(t.valor)}
+        </span>
+        <button
+          onClick={onEditar}
+          className="text-text-muted hover:text-gold"
+          aria-label="Editar"
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          onClick={onExcluir}
+          className="text-text-muted hover:text-brick"
+          aria-label="Excluir"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
+    </li>
+  );
+}
+
+function GrupoParcelasItem({
+  grupo,
+  aberto,
+  onAlternar,
+  mapaCategorias,
+  mapaContas,
+  onEditar,
+  onExcluirUm,
+  onExcluirGrupo,
+}: {
+  grupo: GrupoParcelas;
+  aberto: boolean;
+  onAlternar: () => void;
+  mapaCategorias: Map<string, Categoria>;
+  mapaContas: Map<string, Conta>;
+  onEditar: (t: Transacao) => void;
+  onExcluirUm: (id: string) => void;
+  onExcluirGrupo: (grupoParcelaId: string) => void;
+}) {
+  const maisRecente = grupo.itens[0];
+  const categoria = mapaCategorias.get(maisRecente.categoria_id);
+  const conta = mapaContas.get(maisRecente.conta_id);
+  const descricaoBase =
+    (maisRecente.descricao || "Compra parcelada").replace(SUFIXO_PARCELA, "");
+  const totalGrupo = grupo.itens.reduce((s, t) => s + t.valor, 0);
+
+  return (
+    <li>
+      <button
+        onClick={onAlternar}
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm hover:bg-surface-2"
+      >
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="shrink-0 text-text-muted">
+            {aberto ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </span>
+          <span
+            className="h-2 w-2 shrink-0 rounded-full"
+            style={{ background: categoria?.cor ?? "#6B6B6B" }}
+          />
+          <div className="min-w-0">
+            <p className="flex items-center gap-1.5 truncate">
+              {descricaoBase}
+              <Layers size={12} className="shrink-0 text-text-muted" />
+            </p>
+            <p className="truncate text-xs text-text-muted">
+              {formatarData(maisRecente.data)} · {categoria?.nome ?? "—"} ·{" "}
+              {conta?.nome ?? "—"} · {grupo.itens.length}x
+            </p>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2 text-right">
+          <span
+            className={clsx(
+              "tabular",
+              maisRecente.tipo === "receita" ? "text-sage" : "text-brick"
+            )}
+          >
+            {maisRecente.tipo === "receita" ? "+" : "-"}
+            {formatarMoeda(maisRecente.valor)}
+            <span className="text-text-muted"> × {grupo.itens.length}</span>
+          </span>
+        </div>
+      </button>
+
+      {aberto && (
+        <ul className="flex flex-col divide-y divide-hairline border-t border-hairline">
+          {grupo.itens.map((t) => (
+            <LinhaTransacao
+              key={t.id}
+              t={t}
+              mapaCategorias={mapaCategorias}
+              mapaContas={mapaContas}
+              onEditar={() => onEditar(t)}
+              onExcluir={() => onExcluirUm(t.id)}
+              indentado
+            />
+          ))}
+          <li className="px-4 py-2 pl-10">
+            <button
+              onClick={() => onExcluirGrupo(grupo.id)}
+              className="text-xs text-brick hover:underline"
+            >
+              Excluir todas as {grupo.itens.length} parcelas deste grupo (total{" "}
+              {formatarMoeda(totalGrupo)})
+            </button>
+          </li>
+        </ul>
+      )}
+    </li>
   );
 }
 

@@ -54,11 +54,28 @@ Pede a **parcela atual** e o **total de parcelas** (ex: 3 de 10, se a compra já
 ## 5. Extrato (`/transacoes`)
 
 - Lista até 500 lançamentos mais recentes.
-- **Filtros**: busca por texto na descrição, tipo (receita/despesa/todos), categoria, conta — todos combináveis.
+- **Filtro por mês**: seletor com todos os meses que têm lançamento, mais a opção "Todos os meses". Abre por padrão no mês atual — evita ver tudo de uma vez.
+- **Outros filtros**: busca por texto na descrição, tipo (receita/despesa/todos), categoria, conta — todos combináveis entre si e com o filtro de mês.
 - Mostra a soma dos valores filtrados no topo da lista (respeitando o sinal de receita/despesa).
+- **Agrupamento de parcelas**: quando o filtro de mês está em "Todos os meses", lançamentos que pertencem ao mesmo grupo de parcelamento (mesmo `grupo_parcela_id`) aparecem como uma única linha (ex: "Moto · 48x"), em vez de uma linha por parcela. Clicar na linha expande e mostra cada parcela individualmente, com opção de editar/excluir uma só ou excluir o grupo inteiro. Dentro de um mês específico isso não é necessário, já que normalmente só existe uma parcela daquele grupo por mês.
 - **Edição**: clique no ícone de lápis abre um modal para editar qualquer campo do lançamento.
-- **Exclusão**: clique no ícone de lixeira, com confirmação.
+- **Exclusão**: clique no ícone de lixeira, com confirmação — individual ou do grupo de parcelas inteiro.
 - Atalho no cabeçalho para a tela de **Contas fixas**.
+
+---
+
+## 5.1 Importar Extrato (`/transacoes/importar`)
+
+- Envio de arquivo **.OFX** (padrão que a maioria dos bancos e cartões brasileiros exporta) ou **.CSV** genérico.
+- **OFX**: parser próprio (sem biblioteca externa), extrai data, valor e descrição de cada transação (`<STMTTRN>`), define receita/despesa pelo sinal do valor.
+- **CSV**: leitura com Papaparse + tela de mapeamento — o app tenta adivinhar automaticamente quais colunas são data/descrição/valor pelo nome do cabeçalho, mas o usuário pode corrigir manualmente. Também é possível escolher como definir o tipo: pelo sinal do valor, ou forçar tudo como despesa (útil para CSV de fatura de cartão que só lista gastos) ou tudo como receita.
+- **Prévia antes de salvar**: lista todas as linhas interpretadas, com checkbox para incluir/excluir cada uma, categoria por linha (com atalho para aplicar a mesma categoria a todas as despesas ou todas as receitas de uma vez) e uma única conta selecionada para todo o lote.
+- Inserção em massa no banco só depois da confirmação.
+
+## 5.2 Exportar CSV
+
+- Botão "Exportar CSV" na tela de Extrato — exporta exatamente o que está sendo mostrado ali (respeita todos os filtros ativos: mês, tipo, categoria, conta, busca).
+- Formato pensado para abrir direto no Excel/Google Sheets em português: separador `;`, vírgula como decimal, acentuação preservada (BOM UTF-8).
 
 ---
 
@@ -91,7 +108,31 @@ Pede a **parcela atual** e o **total de parcelas** (ex: 3 de 10, se a compra já
 
 ---
 
-## 9. Dashboard (`/dashboard`)
+## 9. Metas Financeiras (`/metas`)
+
+- Criação de meta: nome, valor alvo e data alvo (opcional).
+- **Aporte**: botão "Adicionar valor" abre um modal para somar um valor ao progresso atual da meta (não substitui, soma ao que já tinha).
+- Barra de progresso visual; ao atingir 100%, o card marca a meta como concluída e o botão de aporte some.
+- Exclusão de meta.
+
+---
+
+## 9.1 Lançamento por texto livre (IA)
+
+- Dentro de `/transacoes/novo`, no modo **Único**, aparece um campo opcional "Lançamento rápido por texto" (ex: *"50 mercado"*, *"uber 23,50 ontem"*).
+- Ao clicar em **Interpretar** (ou apertar Enter), o texto é enviado para `/api/ia/categorizar`, que chama a API da Anthropic (Claude Haiku) com a lista de categorias do usuário e pede um JSON estruturado de volta: valor, tipo (receita/despesa), categoria sugerida, descrição limpa e data (interpretando "ontem", dias da semana, etc. a partir da data de hoje).
+- O formulário é preenchido automaticamente com a sugestão — o usuário só confere e salva (ou ajusta antes).
+- Se a categoria sugerida pela IA não bater com nenhuma categoria existente, os outros campos ainda são preenchidos e o usuário escolhe a categoria manualmente.
+
+## 9.2 Assistente / Chat (`/assistente`)
+
+- Interface de chat simples, com sugestões de pergunta prontas para o primeiro uso.
+- Cada pergunta é enviada para `/api/ia/perguntar`, que primeiro busca e agrega os dados reais do usuário no servidor (receitas, despesas e gasto por categoria do mês atual e do mês anterior, além das contas fixas ativas) e só então manda esse resumo + a pergunta para a Claude Haiku responder.
+- **Regra de ouro respeitada**: a IA nunca recebe a tabela bruta de transações nem calcula somas sozinha — todo número que ela usa na resposta já vem calculado pelo backend; a IA só interpreta a pergunta e formata a resposta em português.
+
+---
+
+## 10. Dashboard (`/dashboard`)
 
 - **Saldo total**: soma de todas as contas, considerando saldo inicial + todas as movimentações.
 - **Receitas do mês** e **Despesas do mês**, em destaque.
@@ -103,7 +144,7 @@ Pede a **parcela atual** e o **total de parcelas** (ex: 3 de 10, se a compra já
 
 ---
 
-## 10. Identidade Visual e Base Técnica
+## 11. Identidade Visual e Base Técnica
 
 - Tema visual próprio ("livro-caixa"/ledger): fundo em tom de tinta verde-escura, dourado para valores e destaque, verde-sálvia para receitas, terracota para despesas.
 - Tipografia: Fraunces (títulos), Inter (corpo), IBM Plex Mono (valores numéricos).
@@ -118,8 +159,7 @@ Pede a **parcela atual** e o **total de parcelas** (ex: 3 de 10, se a compra já
 
 Ver a lista completa e ordenada em [`docs/PROGRESSO.md`](./PROGRESSO.md), seção "Próximos passos". Resumo do que falta:
 
-- Metas financeiras (tela).
-- Assistente com IA (categorização automática por texto livre e chat de perguntas).
 - PWA instalável no celular (ícones e manifest completos).
-- Exportação de dados (CSV).
 - Notificações (contas a vencer, orçamento estourado).
+
+> **Importante**: a categorização por texto e o assistente/chat exigem a variável `ANTHROPIC_API_KEY` configurada no `.env.local` (chave gerada em https://console.anthropic.com). Sem ela, essas duas funcionalidades mostram uma mensagem de erro clara em vez de travar o app.

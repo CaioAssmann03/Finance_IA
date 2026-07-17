@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Conta, Categoria, TipoLancamento } from "@/types/database";
 import clsx from "clsx";
+import { Sparkles } from "lucide-react";
 
 type ModoLancamento = "unico" | "recorrente" | "parcelado";
 
@@ -33,7 +34,51 @@ export function FormularioNovoLancamento({
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
 
+  const [textoRapido, setTextoRapido] = useState("");
+  const [interpretando, setInterpretando] = useState(false);
+  const [erroIa, setErroIa] = useState<string | null>(null);
+
   const categoriasFiltradas = categorias.filter((c) => c.tipo === tipo);
+
+  async function interpretarComIA() {
+    if (!textoRapido.trim()) return;
+    setErroIa(null);
+    setInterpretando(true);
+
+    try {
+      const resposta = await fetch("/api/ia/categorizar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ texto: textoRapido }),
+      });
+      const sugestao = await resposta.json();
+
+      if (!resposta.ok) {
+        setErroIa(sugestao.erro ?? "Não foi possível interpretar o texto.");
+        return;
+      }
+
+      const tipoSugerido: TipoLancamento =
+        sugestao.tipo === "receita" ? "receita" : "despesa";
+      setTipo(tipoSugerido);
+
+      const categoriaEncontrada = categorias.find(
+        (c) =>
+          c.tipo === tipoSugerido &&
+          c.nome.toLowerCase() === String(sugestao.categoria_sugerida).toLowerCase()
+      );
+
+      setValor(sugestao.valor ? String(sugestao.valor).replace(".", ",") : "");
+      setDescricao(sugestao.descricao ?? textoRapido);
+      setData(sugestao.data || new Date().toISOString().slice(0, 10));
+      if (categoriaEncontrada) setCategoriaId(categoriaEncontrada.id);
+      setTextoRapido("");
+    } catch {
+      setErroIa("Não foi possível conectar à IA. Tente preencher manualmente.");
+    } finally {
+      setInterpretando(false);
+    }
+  }
 
   async function salvar(e: React.FormEvent) {
     e.preventDefault();
@@ -166,6 +211,38 @@ export function FormularioNovoLancamento({
 
   return (
     <form onSubmit={salvar} className="flex flex-col gap-4">
+      {modo === "unico" && (
+        <div className="rounded-md border border-hairline bg-surface-2/40 p-3">
+          <label className="mb-2 flex items-center gap-1.5 text-xs text-text-muted">
+            <Sparkles size={13} className="text-gold" />
+            Lançamento rápido por texto (opcional)
+          </label>
+          <div className="flex gap-2">
+            <input
+              value={textoRapido}
+              onChange={(e) => setTextoRapido(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  interpretarComIA();
+                }
+              }}
+              placeholder='Ex: "50 mercado" ou "uber 23,50 ontem"'
+              className="flex-1 rounded-sm border border-hairline bg-surface px-3 py-2 text-sm text-text placeholder:text-text-muted/60 focus:border-gold focus:outline-none"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={interpretarComIA}
+              disabled={interpretando || !textoRapido.trim()}
+            >
+              {interpretando ? "..." : "Interpretar"}
+            </Button>
+          </div>
+          {erroIa && <p className="mt-2 text-xs text-brick">{erroIa}</p>}
+        </div>
+      )}
+
       {/* Modo: único, recorrente ou parcelado */}
       <div className="flex rounded-sm border border-hairline p-1">
         {(

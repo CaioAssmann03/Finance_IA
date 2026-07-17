@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { CabecalhoPagina } from "@/components/layout/cabecalho-pagina";
 import { ExtratoCliente } from "@/components/forms/extrato-cliente";
 import Link from "next/link";
-import { Plus, Repeat } from "lucide-react";
+import { Plus, Repeat, Upload } from "lucide-react";
 import type { Conta, Categoria, Transacao } from "@/types/database";
 
 export default async function TransacoesPage() {
@@ -26,7 +26,14 @@ export default async function TransacoesPage() {
         titulo="Extrato"
         subtitulo="Histórico completo de lançamentos"
         acao={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link
+              href="/transacoes/importar"
+              className="inline-flex items-center gap-2 rounded-sm border border-hairline px-4 py-2.5 text-sm font-medium text-text hover:bg-surface"
+            >
+              <Upload size={16} />
+              Importar
+            </Link>
             <Link
               href="/transacoes/recorrentes"
               className="inline-flex items-center gap-2 rounded-sm border border-hairline px-4 py-2.5 text-sm font-medium text-text hover:bg-surface"

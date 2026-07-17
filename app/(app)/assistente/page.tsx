@@ -1,5 +1,14 @@
-import { PaginaEmConstrucao } from "@/components/layout/pagina-em-construcao";
+import { CabecalhoPagina } from "@/components/layout/cabecalho-pagina";
+import { AssistenteChat } from "@/components/forms/assistente-chat";
 
-export default function Pagina() {
-  return <PaginaEmConstrucao titulo="Assistente IA" fase="Fase 3" />;
+export default function AssistentePage() {
+  return (
+    <div>
+      <CabecalhoPagina
+        titulo="Assistente"
+        subtitulo="Pergunte sobre seus gastos"
+      />
+      <AssistenteChat />
+    </div>
+  );
 }
