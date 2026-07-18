@@ -68,7 +68,10 @@
 9. ~~Categorização automática por texto livre e assistente/chat~~ — **feito em 13/07/2026**.
 10. **Requer configurar `ANTHROPIC_API_KEY` no `.env.local`** para essas duas funcionalidades funcionarem (categorização e assistente) — sem a chave, elas mostram um erro claro pedindo pra configurar.
 11. ~~Exportação CSV~~ e ~~Importação de extrato (OFX/CSV)~~ — **feito em 14/07/2026**.
-12. PWA instalável no celular, notificações — polimento final, sem urgência.
+12. ~~PWA instalável no celular~~ — **feito em 14/07/2026**. Ícones reais gerados (`scripts/gerar-icones.js` com `sharp`, a partir de `scripts/icon-source.svg`/`icon-maskable-source.svg`), `manifest.json` completo, `apple-touch-icon`, e um service worker mínimo (`public/sw.js`) que cacheia só assets estáticos (ícones e JS/CSS do Next) — nunca páginas ou dados, pra não arriscar mostrar informação financeira desatualizada.
+13. ~~Notificações (contas a vencer, orçamento estourado)~~ — **feito em 14/07/2026**. Banner de alertas no dashboard (`lib/notificacoes/calcular-alertas.ts` + `/api/alertas`) e notificações reais do navegador, opcionais, ativadas em `/configuracoes`.
+
+**Todo o roadmap original do PRD está implementado.** Dali pra frente é manutenção, ajustes de UX e o que mais surgir no uso real.
 
 ---
 
@@ -79,6 +82,20 @@
 - Regra de ouro da IA: ela nunca calcula valores financeiros sozinha — o backend sempre calcula os números exatos no banco, a IA só interpreta/explica/categoriza texto.
 - Identidade visual "livro-caixa" (ledger): fundo verde-tinta escuro, dourado como cor de destaque/valor, verde-sálvia para receita, terracota para despesa. Tipografia serifada (Fraunces) nos títulos, Inter no corpo, IBM Plex Mono nos valores numéricos. Elemento de assinatura: a "ledger-row" (linha com guia pontilhada entre rótulo e valor, como um extrato antigo).
 - Nomes de funções, variáveis, rotas e textos da interface estão em português, para manter consistência.
+
+---
+
+## 🎨 Refinamento visual — 14/07/2026
+
+O tema base (ledger: tinta verde + dourado) continua o mesmo, mas ganhou mais profundidade e riqueza visual, sem sair da identidade:
+- Paleta ampliada: cores mais saturadas (`--gold`, `--sage`, `--brick` mais vivos), variantes "soft" (`--gold-soft`, `--sage-soft`, `--brick-soft`) pra badges/fundos suaves, e duas cores de apoio novas (`--plum`, `--copper`) pra dar mais variedade a categorias/gráficos no futuro.
+- Fundo (`body`) ganhou uma vinheta radial sutil + textura de linhas finas, em vez de cor chapada.
+- `Card` (`components/ui/card.tsx`): sombra em camadas, leve gradiente no topo, e uma variante `interativo` (usada nos cards de conta) com hover que levanta o card e realça a borda.
+- `Button` (`components/ui/button.tsx`): botão primário com gradiente dourado + glow na sombra.
+- Cards de resumo do Dashboard: ganharam ícone com badge circular colorido e uma barra de destaque na lateral (dourado/verde/terracota).
+- Navegação lateral: logo com monograma "F" em gradiente, item ativo com barra dourada lateral + fundo suave.
+
+Nada disso mudou a estrutura ou o comportamento de nenhuma tela — é só CSS/classes, então nenhuma lógica foi tocada.
 
 ---
 

@@ -1,0 +1,23 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#163024"/>
+      <stop offset="1" stop-color="#0F211A"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+
+  <!-- Monograma "F" estilo ledger -->
+  <text
+    x="256" y="330"
+    text-anchor="middle"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="260"
+    font-weight="600"
+    fill="#C9A227"
+  >F</text>
+
+  <!-- Linha pontilhada, remetendo à "ledger row" do app -->
+  <line x1="140" y1="380" x2="372" y2="380" stroke="#C9A227" stroke-width="6" stroke-linecap="round" stroke-dasharray="2 20"/>
+</svg>

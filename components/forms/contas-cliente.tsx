@@ -126,7 +126,7 @@ export function ContasCliente({ contasIniciais }: { contasIniciais: Conta[] }) {
           {contas.map((conta) => {
             const Icone = ICONES_TIPO[conta.tipo];
             return (
-              <Card key={conta.id} className="relative">
+              <Card key={conta.id} interativo className="relative">
                 <button
                   onClick={() => excluirConta(conta.id)}
                   className="absolute right-4 top-4 text-text-muted hover:text-brick"

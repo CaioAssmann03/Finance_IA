@@ -2,17 +2,26 @@
 
 :root {
   /* Cores — tema "livro-caixa" (ledger): tinta, pergaminho e ouro */
-  --bg: #0F211A;
-  --surface: #163024;
-  --surface-2: #1D3A2C;
-  --hairline: rgba(237, 230, 214, 0.14);
-  --text: #EDE6D6;
-  --text-muted: #9BB09B;
+  --bg: #0C1B15;
+  --surface: #16302A;
+  --surface-2: #1E3D33;
+  --hairline: rgba(237, 230, 214, 0.13);
+  --hairline-strong: rgba(237, 230, 214, 0.22);
+  --text: #F1EBDB;
+  --text-muted: #9FB3A3;
 
-  --gold: #C9A227;      /* saldo / valor / destaque */
-  --sage: #5CAE7C;       /* receita / positivo */
-  --brick: #C1503D;      /* despesa / negativo */
-  --plum: #8A6DAE;       /* categorias diversas */
+  --gold: #D4AF37;        /* saldo / valor / destaque */
+  --gold-soft: rgba(212, 175, 55, 0.16);
+  --gold-glow: rgba(212, 175, 55, 0.35);
+  --sage: #5FC48A;         /* receita / positivo */
+  --sage-soft: rgba(95, 196, 138, 0.14);
+  --brick: #E2664D;        /* despesa / negativo */
+  --brick-soft: rgba(226, 102, 77, 0.14);
+  --plum: #A987D1;         /* categorias diversas */
+  --copper: #D98C4A;       /* categorias diversas (2ª cor de apoio) */
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.24), 0 8px 24px -12px rgba(0, 0, 0, 0.55);
+  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.3), 0 16px 40px -16px rgba(0, 0, 0, 0.65);
 
   --font-display: var(--font-fraunces);
   --font-body: var(--font-inter);
@@ -24,12 +33,17 @@
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
   --color-text: var(--text);
   --color-text-muted: var(--text-muted);
   --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
   --color-sage: var(--sage);
+  --color-sage-soft: var(--sage-soft);
   --color-brick: var(--brick);
+  --color-brick-soft: var(--brick-soft);
   --color-plum: var(--plum);
+  --color-copper: var(--copper);
 
   --font-display: var(--font-display);
   --font-body: var(--font-body);
@@ -45,9 +59,19 @@ html {
 }
 
 body {
-  background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
+  background-color: var(--bg);
+  /* Leve vinheta radial + textura de linhas finas, pra não ficar uma cor chapada */
+  background-image:
+    radial-gradient(ellipse 1200px 600px at 15% -10%, rgba(212, 175, 55, 0.07), transparent 60%),
+    radial-gradient(ellipse 900px 700px at 100% 10%, rgba(95, 196, 138, 0.05), transparent 55%),
+    repeating-linear-gradient(
+      transparent,
+      transparent 27px,
+      rgba(237, 230, 214, 0.014) 28px
+    );
+  background-attachment: fixed;
 }
 
 /* Linha de ledger: rótulo à esquerda, guia pontilhada, valor monoespaçado à direita.

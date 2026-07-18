@@ -155,11 +155,26 @@ Pede a **parcela atual** e o **total de parcelas** (ex: 3 de 10, se a compra já
 
 ---
 
-## O que ainda não existe
+## 12. PWA — Instalável no Celular
 
-Ver a lista completa e ordenada em [`docs/PROGRESSO.md`](./PROGRESSO.md), seção "Próximos passos". Resumo do que falta:
+- Ícones reais em todos os tamanhos necessários (192, 256, 384, 512 e versão maskable para Android, além do apple-touch-icon para iOS), gerados a partir de um SVG-fonte com a identidade visual do app (fundo em gradiente verde-tinta, monograma "F" dourado, linha pontilhada remetendo à "ledger row").
+- `manifest.json` completo: nome, ícones, cor de tema, modo `standalone` (abre em tela cheia, sem barra de navegador), tela inicial em `/dashboard`.
+- Service worker mínimo (`public/sw.js`): cacheia só assets estáticos (ícones, JS/CSS do Next) — nunca páginas ou dados, para nunca arriscar mostrar informação financeira desatualizada offline. Existe principalmente para satisfazer o critério de instalabilidade do Chrome/Android.
+- No iOS: "Compartilhar" → "Adicionar à Tela de Início". No Android/Chrome: aparece um prompt de instalação automático, ou "Instalar app" no menu do navegador.
 
-- PWA instalável no celular (ícones e manifest completos).
-- Notificações (contas a vencer, orçamento estourado).
+---
 
-> **Importante**: a categorização por texto e o assistente/chat exigem a variável `ANTHROPIC_API_KEY` configurada no `.env.local` (chave gerada em https://console.anthropic.com). Sem ela, essas duas funcionalidades mostram uma mensagem de erro clara em vez de travar o app.
+## 13. Notificações
+
+- **Banner no dashboard**: mostra automaticamente, no topo, alertas de (a) contas fixas ativas vencendo nos próximos 3 dias e (b) categorias com orçamento em 80% ou mais (aviso) ou 100%+ (estourado — urgente). Cada alerta pode ser dispensado individualmente (só naquela visita, volta a aparecer se a página for recarregada e a condição continuar valendo).
+- **Notificações reais do navegador** (opcionais, em `/configuracoes`): pedem permissão do navegador e, uma vez concedida, disparam uma notificação do sistema (fora da aba) quando a lista de alertas muda — verificado no máximo uma vez por dia (guardado no `localStorage` do navegador). Tem também um botão "Testar agora" para forçar a verificação na hora.
+- **Importante**: isso não é notificação push de verdade (não chega com o navegador/app fechado) — funciona enquanto o Finance IA está aberto em alguma aba. Notificação push real exigiria um servidor rodando em segundo plano (VAPID + service worker push), o que foge do escopo de um projeto pessoal simples de manter.
+- A lógica de cálculo dos alertas fica em `lib/notificacoes/calcular-alertas.ts` e é exposta também via `GET /api/alertas`, reaproveitada tanto pelo dashboard quanto pelas notificações do navegador.
+
+---
+
+## Estado do projeto
+
+Todas as funcionalidades previstas no `docs/01-prd-visao-geral.md` e no `docs/04-roadmap.md` estão implementadas. Para novas funcionalidades ou ajustes, não existe mais uma lista de pendências fixa — acompanhe `docs/PROGRESSO.md` para o histórico de mudanças.
+
+> **Lembrete**: a categorização por texto e o assistente/chat exigem a variável `ANTHROPIC_API_KEY` configurada no `.env.local` (chave gerada em https://console.anthropic.com, com crédito na conta). Sem ela, essas duas funcionalidades mostram uma mensagem de erro clara em vez de travar o app.

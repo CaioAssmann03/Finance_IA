@@ -5,9 +5,11 @@ import { GraficoCategorias } from "@/components/charts/grafico-categorias";
 import { formatarMoeda, nomeDoMes, formatarData } from "@/lib/utils/formatters";
 import { gerarLancamentosDoMes } from "@/lib/recorrentes/gerar-lancamentos-do-mes";
 import { mesReferenciaAtual } from "@/lib/utils/mes-referencia";
-import type { Conta, Transacao, Categoria, Orcamento } from "@/types/database";
+import { alertasDeContasFixas, alertasDeOrcamento } from "@/lib/notificacoes/calcular-alertas";
+import { AlertasFinanceiros } from "@/components/notificacoes/alertas-financeiros";
+import type { Conta, Transacao, Categoria, Orcamento, TransacaoRecorrente } from "@/types/database";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, Wallet, TrendingUp, TrendingDown } from "lucide-react";
 import clsx from "clsx";
 
 function inicioFimDoMes() {
@@ -32,8 +34,13 @@ export default async function DashboardPage() {
 
   const { inicio, fim } = inicioFimDoMes();
 
-  const [{ data: contas }, { data: transacoesMes }, { data: categorias }, { data: orcamentos }] =
-    await Promise.all([
+  const [
+    { data: contas },
+    { data: transacoesMes },
+    { data: categorias },
+    { data: orcamentos },
+    { data: recorrentesAtivas },
+  ] = await Promise.all([
       supabase.from("contas").select("*").returns<Conta[]>(),
       supabase
         .from("transacoes")
@@ -48,6 +55,11 @@ export default async function DashboardPage() {
         .select("*")
         .eq("mes_referencia", mesReferenciaAtual())
         .returns<Orcamento[]>(),
+      supabase
+        .from("transacoes_recorrentes")
+        .select("*")
+        .eq("ativo", true)
+        .returns<TransacaoRecorrente[]>(),
     ]);
 
   const listaContas = contas ?? [];
@@ -107,6 +119,11 @@ export default async function DashboardPage() {
     })
     .sort((a, b) => b.percentual - a.percentual);
 
+  const alertas = [
+    ...alertasDeContasFixas(recorrentesAtivas ?? []),
+    ...alertasDeOrcamento(orcamentoPorCategoria),
+  ];
+
   return (
     <div>
       <CabecalhoPagina
@@ -115,7 +132,7 @@ export default async function DashboardPage() {
         acao={
           <Link
             href="/transacoes/novo"
-            className="inline-flex items-center gap-2 rounded-sm bg-gold px-4 py-2.5 text-sm font-medium text-bg hover:brightness-110"
+            className="inline-flex items-center gap-2 rounded-md bg-gradient-to-b from-[#E4C155] to-[#C9A227] px-4 py-2.5 text-sm font-medium text-bg shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_4px_14px_-2px_var(--gold-glow)] transition-all hover:brightness-105"
           >
             <Plus size={16} />
             Lançar
@@ -123,28 +140,39 @@ export default async function DashboardPage() {
         }
       />
 
+      <AlertasFinanceiros alertas={alertas} />
+
       <div className="grid gap-4 px-5 md:grid-cols-3 md:px-8">
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-text-muted">
+        <Card className="overflow-hidden border-l-2 border-l-gold">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-text-muted">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gold-soft text-gold">
+              <Wallet size={14} strokeWidth={2} />
+            </span>
             Saldo total
-          </p>
-          <p className="mt-2 font-[family-name:var(--font-numeric)] text-2xl">
+          </div>
+          <p className="mt-3 font-[family-name:var(--font-numeric)] text-3xl">
             {formatarMoeda(saldoTotal)}
           </p>
         </Card>
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-text-muted">
+        <Card className="overflow-hidden border-l-2 border-l-sage">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-text-muted">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-sage-soft text-sage">
+              <TrendingUp size={14} strokeWidth={2} />
+            </span>
             Receitas do mês
-          </p>
-          <p className="mt-2 font-[family-name:var(--font-numeric)] text-2xl text-sage">
+          </div>
+          <p className="mt-3 font-[family-name:var(--font-numeric)] text-3xl text-sage">
             {formatarMoeda(receitasMes)}
           </p>
         </Card>
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-text-muted">
+        <Card className="overflow-hidden border-l-2 border-l-brick">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-text-muted">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brick-soft text-brick">
+              <TrendingDown size={14} strokeWidth={2} />
+            </span>
             Despesas do mês
-          </p>
-          <p className="mt-2 font-[family-name:var(--font-numeric)] text-2xl text-brick">
+          </div>
+          <p className="mt-3 font-[family-name:var(--font-numeric)] text-3xl text-brick">
             {formatarMoeda(despesasMes)}
           </p>
         </Card>

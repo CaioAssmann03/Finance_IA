@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Utilitários de linha de comando, não fazem parte do app Next.js:
+    "scripts/**",
+    "public/sw.js",
   ]),
 ]);
 
