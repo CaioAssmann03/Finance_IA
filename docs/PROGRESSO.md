@@ -27,7 +27,7 @@
 
 ### Autenticação
 - [x] `lib/supabase/client.ts` e `lib/supabase/server.ts` — clients do Supabase.
-- [x] `middleware.ts` — renovação de sessão.
+- [x] `proxy.ts` (renomeado de `middleware.ts` em 14/07/2026, seguindo a nova convenção do Next.js 16 — ver seção de rodada de melhorias mais abaixo) — renovação de sessão.
 - [x] Página `/login` funcional (formulário completo, chama `signInWithPassword`).
 - [x] Página `/cadastro` funcional (chama `signUp`, mostra tela de "confirme seu e-mail").
 - [x] `app/(app)/layout.tsx` — protege as páginas internas, redireciona pra `/login` se não autenticado.
@@ -108,6 +108,13 @@ Pendente ainda desta lista de ideias (fica pro próximo passo):
 - **Resumo anual** (`/relatorios`, nova rota): saldo/receitas/despesas do ano inteiro, com comparação vs o ano anterior; gráfico mês a mês (reaproveita o `GraficoEvolucaoMensal` já existente, que aceita qualquer quantidade de meses); categorias que mais pesaram no ano (barra de progresso por categoria); maior gasto do ano; médias mensais. Navegação entre anos com setinhas (`?ano=2025`, etc). Acessível pelo link "Ver resumo anual →" no card de evolução do dashboard (não entrou no menu principal, pra não lotar a barra do celular).
 
 Com isso, as 9 ideias sugeridas estão todas feitas, exceto a nº 9 (confirmar deploy na Vercel), que depende só de você.
+
+---
+
+## 🔧 Correção de build na Vercel — 14/07/2026
+
+- **Variáveis de ambiente**: o primeiro deploy falhou porque `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` não estavam configuradas em Settings → Environment Variables do projeto na Vercel (mesmo problema clássico do `.env.local` faltando, só que no ambiente de build remoto). Resolvido pelo usuário direto no painel da Vercel.
+- **`middleware.ts` → `proxy.ts`**: o Next.js 16 renomeou a convenção de arquivo `middleware` para `proxy` (aparecia como aviso amarelo no log de build, não travava o build, mas ia parar de funcionar de vez em versão futura do Next.js). Migração feita: arquivo renomeado, função `middleware()` renomeada para `proxy()`, `export const config` com o `matcher` ficou idêntico — só isso muda entre as duas convenções.
 
 ---
 
