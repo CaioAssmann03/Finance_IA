@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 
 export default function CadastroPage() {
   const router = useRouter();
-  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -19,6 +18,8 @@ export default function CadastroPage() {
     e.preventDefault();
     setErro(null);
     setCarregando(true);
+
+    const supabase = createClient();
 
     const { error } = await supabase.auth.signUp({ email, password: senha });
 
