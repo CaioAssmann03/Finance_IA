@@ -1,31 +1,71 @@
 @import "tailwindcss";
 
+/* ===== Tema escuro (padrão) — azul-marinho profundo + acento azul-claro ===== */
 :root {
-  /* Cores — tema "livro-caixa" (ledger): tinta, pergaminho e ouro */
-  --bg: #0C1B15;
-  --surface: #16302A;
-  --surface-2: #1E3D33;
-  --hairline: rgba(237, 230, 214, 0.13);
-  --hairline-strong: rgba(237, 230, 214, 0.22);
-  --text: #F1EBDB;
-  --text-muted: #9FB3A3;
+  --bg: #0A1220;
+  --surface: #111B2F;
+  --surface-2: #17233C;
+  --hairline: rgba(214, 224, 242, 0.12);
+  --hairline-strong: rgba(214, 224, 242, 0.22);
+  --text: #ECF1FA;
+  --text-muted: #8996B3;
 
-  --gold: #D4AF37;        /* saldo / valor / destaque */
-  --gold-soft: rgba(212, 175, 55, 0.16);
-  --gold-glow: rgba(212, 175, 55, 0.35);
-  --sage: #5FC48A;         /* receita / positivo */
-  --sage-soft: rgba(95, 196, 138, 0.14);
-  --brick: #E2664D;        /* despesa / negativo */
-  --brick-soft: rgba(226, 102, 77, 0.14);
-  --plum: #A987D1;         /* categorias diversas */
-  --copper: #D98C4A;       /* categorias diversas (2ª cor de apoio) */
+  /* Nome da variável ficou "gold" por herança do tema anterior, mas hoje é
+     o azul-claro de destaque (saldo, botões, valores) — ver docs/PROGRESSO.md */
+  --gold: #6FB3FF;
+  --gold-light: #BFE0FF;
+  --gold-soft: rgba(111, 179, 255, 0.16);
+  --gold-glow: rgba(111, 179, 255, 0.38);
+  --on-accent: #071427;
 
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.24), 0 8px 24px -12px rgba(0, 0, 0, 0.55);
-  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.3), 0 16px 40px -16px rgba(0, 0, 0, 0.65);
+  --sage: #34D399;        /* receita / positivo */
+  --sage-soft: rgba(52, 211, 153, 0.15);
+  --brick: #FB7185;        /* despesa / negativo */
+  --brick-soft: rgba(251, 113, 133, 0.15);
+  --plum: #C4B5FD;         /* categorias diversas */
+  --copper: #FDBA74;       /* categorias diversas (2ª cor de apoio) */
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --shadow-elevated: 0 4px 12px rgba(0, 0, 0, 0.35), 0 16px 40px -16px rgba(0, 0, 0, 0.7);
+
+  --vinheta-1: rgba(111, 179, 255, 0.08);
+  --vinheta-2: rgba(52, 211, 153, 0.045);
+  --textura-linha: rgba(236, 241, 250, 0.014);
 
   --font-display: var(--font-fraunces);
   --font-body: var(--font-inter);
   --font-numeric: var(--font-plex-mono);
+}
+
+/* ===== Tema claro — branco/cinza neutro + o mesmo acento azul ===== */
+[data-theme="light"] {
+  --bg: #F6F8FB;
+  --surface: #FFFFFF;
+  --surface-2: #EEF2F7;
+  --hairline: rgba(15, 23, 42, 0.1);
+  --hairline-strong: rgba(15, 23, 42, 0.18);
+  --text: #101828;
+  --text-muted: #5B6472;
+
+  --gold: #2F7CE8;
+  --gold-light: #6FB3FF;
+  --gold-soft: rgba(47, 124, 232, 0.1);
+  --gold-glow: rgba(47, 124, 232, 0.28);
+  --on-accent: #FFFFFF;
+
+  --sage: #16A34A;
+  --sage-soft: rgba(22, 163, 74, 0.1);
+  --brick: #DC2626;
+  --brick-soft: rgba(220, 38, 38, 0.1);
+  --plum: #7C6FE0;
+  --copper: #C2760C;
+
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px -4px rgba(16, 24, 40, 0.1);
+  --shadow-elevated: 0 4px 10px rgba(16, 24, 40, 0.08), 0 12px 28px -10px rgba(16, 24, 40, 0.16);
+
+  --vinheta-1: rgba(47, 124, 232, 0.05);
+  --vinheta-2: rgba(22, 163, 74, 0.03);
+  --textura-linha: rgba(16, 24, 40, 0.018);
 }
 
 @theme inline {
@@ -58,18 +98,23 @@ html {
   color-scheme: dark;
 }
 
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
 body {
   color: var(--text);
   font-family: var(--font-body);
   background-color: var(--bg);
+  transition: background-color 0.2s ease, color 0.2s ease;
   /* Leve vinheta radial + textura de linhas finas, pra não ficar uma cor chapada */
   background-image:
-    radial-gradient(ellipse 1200px 600px at 15% -10%, rgba(212, 175, 55, 0.07), transparent 60%),
-    radial-gradient(ellipse 900px 700px at 100% 10%, rgba(95, 196, 138, 0.05), transparent 55%),
+    radial-gradient(ellipse 1200px 600px at 15% -10%, var(--vinheta-1), transparent 60%),
+    radial-gradient(ellipse 900px 700px at 100% 10%, var(--vinheta-2), transparent 55%),
     repeating-linear-gradient(
       transparent,
       transparent 27px,
-      rgba(237, 230, 214, 0.014) 28px
+      var(--textura-linha) 28px
     );
   background-attachment: fixed;
 }

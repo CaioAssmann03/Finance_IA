@@ -85,7 +85,51 @@
 
 ---
 
-## 🎨 Refinamento visual — 14/07/2026
+## 🚀 Rodada de melhorias — 14/07/2026 (parte 2)
+
+- **Recolorir categorias existentes**: botão em `/categorias` que reatribui cores da paleta nova a todas as categorias já cadastradas, sem repetir cor entre elas.
+- **Editar categoria**: agora dá pra renomear e trocar a cor de uma categoria já existente (antes só criava/excluía). Novo componente `components/ui/seletor-cor.tsx` — mostra a paleta como bolinhas clicáveis + uma opção de cor livre (input nativo `type="color"`).
+- **Editar conta**: mesma coisa pra contas — antes só criava/excluía, agora dá pra editar nome, tipo, saldo inicial e dia de fechamento/vencimento (pra cartão de crédito).
+- **Ícones reais das categorias**: as categorias sempre guardaram um nome de ícone (tipo `"utensils"`, `"car"`) mas nada usava isso. Criado `lib/icones-categorias.ts`, mapeando pro componente Lucide certo — aparece agora na lista de categorias em `/categorias` (bolinha colorida virou um badge com o ícone de verdade).
+- **Gráfico de saldo acumulado**: novo card "Saldo acumulado" no dashboard, `components/charts/grafico-saldo-acumulado.tsx` (área/linha), mostrando a trajetória do saldo total nos últimos 6 meses — calculado de trás pra frente a partir do saldo atual, aplicando a variação (receita - despesa) de cada mês.
+
+Pendente ainda desta lista de ideias (fica pro próximo passo):
+- Comparação com a média dos últimos 3-6 meses (hoje só compara com o mês imediatamente anterior).
+- Filtro de período customizado no Extrato (hoje é só por mês inteiro).
+- Resumo anual.
+- Confirmar deploy automático na Vercel (isso depende de você, não é algo que eu construo no código).
+
+---
+
+## 🚀 Rodada de melhorias — 14/07/2026 (parte 3)
+
+- **Comparação com a média recente**: os cards de Receitas/Despesas do dashboard agora mostram dois selos — "vs mês passado" (já existia) e "vs média recente" (nova, calculada com os meses anteriores dentro da janela de 6 meses já buscada). `components/dashboard/selo-comparacao.tsx` ganhou um prop `rotulo` pra ficar reutilizável nos dois casos.
+- **Filtro de período personalizado no Extrato**: além dos meses individuais e "Todos os meses", agora tem a opção "Período personalizado..." que abre dois campos de data (de/até). O agrupamento de parcelas passa a valer também nesse modo (mesma lógica de "Todos os meses").
+- **Resumo anual** (`/relatorios`, nova rota): saldo/receitas/despesas do ano inteiro, com comparação vs o ano anterior; gráfico mês a mês (reaproveita o `GraficoEvolucaoMensal` já existente, que aceita qualquer quantidade de meses); categorias que mais pesaram no ano (barra de progresso por categoria); maior gasto do ano; médias mensais. Navegação entre anos com setinhas (`?ano=2025`, etc). Acessível pelo link "Ver resumo anual →" no card de evolução do dashboard (não entrou no menu principal, pra não lotar a barra do celular).
+
+Com isso, as 9 ideias sugeridas estão todas feitas, exceto a nº 9 (confirmar deploy na Vercel), que depende só de você.
+
+---
+
+## 🎨 Paleta de categorias + novos gráficos — 14/07/2026
+
+- **Paleta de categorias** (`lib/paleta-categorias.ts`): 18 cores distintas entre si (antes tinha cor repetida, tipo Alimentação e Mercado ambas vermelho, ou Salário/Freelance/Presente todas a mesma cor verde — ruim pro gráfico de pizza). Agora cada categoria padrão tem uma cor única, e categorias criadas manualmente também recebem automaticamente uma cor não repetida da paleta (antes todas nasciam com a mesma cor fixa do banco).
+- **Selo de comparação** (`components/dashboard/selo-comparacao.tsx`): os cards de Receitas e Despesas do mês agora mostram "▲/▼ X% vs mês passado" — verde quando é bom (receita subiu, despesa desceu) e vermelho quando é ruim, cinza quando não há dado do mês anterior pra comparar.
+- **Gráfico de evolução mensal** (`components/charts/grafico-evolucao-mensal.tsx`): barras agrupadas de receitas x despesas dos últimos 6 meses, novo card "Evolução (últimos 6 meses)" no dashboard.
+
+---
+
+## 🎨 Nova paleta + tema claro/escuro — 14/07/2026
+
+Depois do feedback de que o verde não agradava, o tema mudou de vez:
+- **Tema escuro (padrão)**: fundo azul-marinho profundo (`--bg: #0A1220`), acento azul-claro vivo (`--gold: #6FB3FF` — a variável manteve o nome antigo "gold" pra não precisar renomear centenas de classes Tailwind espalhadas pelo projeto, mas hoje é o azul de destaque; ver comentário em `globals.css`).
+- **Tema claro (novo)**: fundo branco/cinza neutro (`--bg: #F6F8FB`, cards em `#FFFFFF`), acento azul mais saturado pra ter contraste (`#2F7CE8`).
+- Receita/despesa continuam verde/vermelho em ambos os temas, só que mais vivos (`--sage: #34D399` / `--brick: #FB7185` no escuro; tons mais escuros equivalentes no claro pra manter contraste em fundo branco).
+- Alternador de tema (`components/tema/alternador-tema.tsx`): ícone de sol/lua na sidebar (desktop) e em Configurações (mobile), salva a escolha em `localStorage`. Um script inline no `<head>` (`app/layout.tsx`) aplica o tema salvo antes da primeira renderização, pra não "piscar" o tema errado ao carregar a página.
+- **Corrigido um bug real**: o texto do gráfico "Gastos por categoria" vazava pra fora do card em telas menores — faltava `min-w-0` nos containers flex (bug clássico de flexbox). Corrigido em `components/charts/grafico-categorias.tsx` e adicionado `min-w-0` no `Card` por padrão, pra não repetir esse tipo de bug em outro lugar.
+- Ícones do PWA (`public/icons/`) regenerados com as cores novas.
+
+> **Detalhe técnico**: alguns componentes usavam cor dourada em hexadecimal fixo (`#C9A227` etc.) em vez da variável CSS — isso foi corrigido pra usar `var(--gold)`, `var(--gold-light)` e a nova `var(--on-accent)` (cor do texto sobre elementos na cor de destaque, ajustada por tema), senão a troca de tema não ia funcionar nesses pontos.
 
 O tema base (ledger: tinta verde + dourado) continua o mesmo, mas ganhou mais profundidade e riqueza visual, sem sair da identidade:
 - Paleta ampliada: cores mais saturadas (`--gold`, `--sage`, `--brick` mais vivos), variantes "soft" (`--gold-soft`, `--sage-soft`, `--brick-soft`) pra badges/fundos suaves, e duas cores de apoio novas (`--plum`, `--copper`) pra dar mais variedade a categorias/gráficos no futuro.

@@ -10,7 +10,9 @@ import {
   Tags,
   Target,
   Sparkles,
+  Settings,
 } from "lucide-react";
+import { AlternadorTema } from "@/components/tema/alternador-tema";
 
 const ITENS = [
   { href: "/dashboard", label: "Visão geral", icone: LayoutDashboard },
@@ -19,6 +21,7 @@ const ITENS = [
   { href: "/categorias", label: "Categorias", icone: Tags },
   { href: "/metas", label: "Metas", icone: Target },
   { href: "/assistente", label: "Assistente", icone: Sparkles },
+  { href: "/configuracoes", label: "Ajustes", icone: Settings },
 ];
 
 export function NavPrincipal() {
@@ -29,7 +32,7 @@ export function NavPrincipal() {
       {/* Sidebar — desktop */}
       <nav className="hidden md:flex md:w-56 md:flex-col md:border-r md:border-hairline md:bg-surface/40 md:px-3 md:py-6">
         <div className="mb-8 flex items-center gap-2 px-3">
-          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-b from-[#E4C155] to-[#C9A227] font-[family-name:var(--font-display)] text-sm font-semibold text-bg shadow-[0_1px_0_rgba(255,255,255,0.25)_inset]">
+          <span className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-b from-[var(--gold-light)] to-[var(--gold)] font-[family-name:var(--font-display)] text-sm font-semibold text-[var(--on-accent)] shadow-[0_1px_0_rgba(255,255,255,0.25)_inset]">
             F
           </span>
           <p className="text-xs uppercase tracking-[0.2em] text-text-muted">
@@ -60,6 +63,10 @@ export function NavPrincipal() {
             );
           })}
         </ul>
+
+        <div className="mt-auto border-t border-hairline pt-3">
+          <AlternadorTema />
+        </div>
       </nav>
 
       {/* Barra inferior — mobile */}

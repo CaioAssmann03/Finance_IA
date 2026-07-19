@@ -77,7 +77,7 @@ export function AssistenteChat() {
               className={clsx(
                 "max-w-[85%] rounded-md px-4 py-2.5 text-sm",
                 m.autor === "usuario"
-                  ? "ml-auto bg-gold text-bg"
+                  ? "ml-auto bg-gold text-[var(--on-accent)]"
                   : "flex items-start gap-2 bg-surface-2 text-text"
               )}
             >

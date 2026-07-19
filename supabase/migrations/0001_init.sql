@@ -27,7 +27,7 @@ create table categorias (
   tipo text not null check (tipo in ('receita','despesa')),
   categoria_pai_id uuid references categorias(id) on delete set null,
   icone text,
-  cor text default '#C9A227'
+  cor text default '#5B9EF0'
 );
 
 -- =========================

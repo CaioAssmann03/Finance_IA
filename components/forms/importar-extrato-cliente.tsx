@@ -262,7 +262,7 @@ export function ImportarExtratoCliente({
             Aceita arquivos <strong>.OFX</strong> (a maioria dos bancos exporta
             esse formato) ou <strong>.CSV</strong>.
           </p>
-          <label className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-sm bg-gold px-4 py-2.5 text-sm font-medium text-bg hover:brightness-110">
+          <label className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-sm bg-gold px-4 py-2.5 text-sm font-medium text-[var(--on-accent)] hover:brightness-110">
             <FileText size={16} />
             Escolher arquivo
             <input

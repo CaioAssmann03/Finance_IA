@@ -97,9 +97,16 @@ export function ExtratoCliente({
     const chaves = new Set(transacoesIniciais.map((t) => t.data.slice(0, 7)));
     return chaves.has(atual) ? atual : "todos";
   });
+  const [dataInicioPersonalizada, setDataInicioPersonalizada] = useState("");
+  const [dataFimPersonalizada, setDataFimPersonalizada] = useState("");
 
   const filtradas = transacoes.filter((t) => {
-    if (filtroMes !== "todos" && t.data.slice(0, 7) !== filtroMes) return false;
+    if (filtroMes === "personalizado") {
+      if (dataInicioPersonalizada && t.data < dataInicioPersonalizada) return false;
+      if (dataFimPersonalizada && t.data > dataFimPersonalizada) return false;
+    } else if (filtroMes !== "todos" && t.data.slice(0, 7) !== filtroMes) {
+      return false;
+    }
     if (filtroTipo !== "todos" && t.tipo !== filtroTipo) return false;
     if (filtroCategoria && t.categoria_id !== filtroCategoria) return false;
     if (filtroConta && t.conta_id !== filtroConta) return false;
@@ -113,10 +120,12 @@ export function ExtratoCliente({
     0
   );
 
-  // Só agrupa parcelas quando não há um mês específico selecionado — dentro de
-  // um único mês normalmente só existe uma ocorrência de cada grupo mesmo.
+  // Só agrupa parcelas quando não há um único mês específico selecionado —
+  // dentro de um mês fechado normalmente só existe uma ocorrência de cada grupo mesmo.
   const itensExibidos =
-    filtroMes === "todos" ? agruparParcelas(filtradas) : filtradas;
+    filtroMes === "todos" || filtroMes === "personalizado"
+      ? agruparParcelas(filtradas)
+      : filtradas;
 
   async function excluir(id: string) {
     if (!confirm("Excluir este lançamento?")) return;
@@ -185,7 +194,12 @@ export function ExtratoCliente({
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const sufixo = filtroMes === "todos" ? "todos-os-meses" : filtroMes;
+    const sufixo =
+      filtroMes === "todos"
+        ? "todos-os-meses"
+        : filtroMes === "personalizado"
+        ? `${dataInicioPersonalizada || "inicio"}_a_${dataFimPersonalizada || "fim"}`
+        : filtroMes;
     a.href = url;
     a.download = `finance-ia-extrato-${sufixo}.csv`;
     a.click();
@@ -220,7 +234,26 @@ export function ExtratoCliente({
               {rotuloMes(mes)}
             </option>
           ))}
+          <option value="personalizado">Período personalizado...</option>
         </select>
+
+        {filtroMes === "personalizado" && (
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dataInicioPersonalizada}
+              onChange={(e) => setDataInicioPersonalizada(e.target.value)}
+              className="rounded-sm border border-hairline bg-surface px-3 py-2.5 text-sm text-text focus:border-gold focus:outline-none"
+            />
+            <span className="text-text-muted">até</span>
+            <input
+              type="date"
+              value={dataFimPersonalizada}
+              onChange={(e) => setDataFimPersonalizada(e.target.value)}
+              className="rounded-sm border border-hairline bg-surface px-3 py-2.5 text-sm text-text focus:border-gold focus:outline-none"
+            />
+          </div>
+        )}
 
         <select
           value={filtroTipo}

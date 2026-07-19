@@ -2,6 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { CabecalhoPagina } from "@/components/layout/cabecalho-pagina";
 import { Card } from "@/components/ui/card";
 import { GraficoCategorias } from "@/components/charts/grafico-categorias";
+import { GraficoEvolucaoMensal, type PontoEvolucaoMensal } from "@/components/charts/grafico-evolucao-mensal";
+import { GraficoSaldoAcumulado, type PontoSaldo } from "@/components/charts/grafico-saldo-acumulado";
+import { SeloComparacao } from "@/components/dashboard/selo-comparacao";
 import { formatarMoeda, nomeDoMes, formatarData } from "@/lib/utils/formatters";
 import { gerarLancamentosDoMes } from "@/lib/recorrentes/gerar-lancamentos-do-mes";
 import { mesReferenciaAtual } from "@/lib/utils/mes-referencia";
@@ -22,6 +25,12 @@ function inicioFimDoMes() {
   };
 }
 
+function inicioDosUltimosMeses(quantidade: number) {
+  const hoje = new Date();
+  const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - (quantidade - 1), 1);
+  return inicio.toISOString().slice(0, 10);
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient();
   const {
@@ -33,6 +42,7 @@ export default async function DashboardPage() {
   }
 
   const { inicio, fim } = inicioFimDoMes();
+  const inicioSeisMeses = inicioDosUltimosMeses(6);
 
   const [
     { data: contas },
@@ -40,6 +50,7 @@ export default async function DashboardPage() {
     { data: categorias },
     { data: orcamentos },
     { data: recorrentesAtivas },
+    { data: transacoesSeisMeses },
   ] = await Promise.all([
       supabase.from("contas").select("*").returns<Conta[]>(),
       supabase
@@ -60,6 +71,12 @@ export default async function DashboardPage() {
         .select("*")
         .eq("ativo", true)
         .returns<TransacaoRecorrente[]>(),
+      supabase
+        .from("transacoes")
+        .select("*")
+        .gte("data", inicioSeisMeses)
+        .lte("data", fim)
+        .returns<Transacao[]>(),
     ]);
 
   const listaContas = contas ?? [];
@@ -124,6 +141,62 @@ export default async function DashboardPage() {
     ...alertasDeOrcamento(orcamentoPorCategoria),
   ];
 
+  // Série dos últimos 6 meses (receitas x despesas por mês)
+  const listaSeisMeses = transacoesSeisMeses ?? [];
+  const hoje = new Date();
+  const evolucaoMensal: PontoEvolucaoMensal[] = Array.from({ length: 6 }).map((_, i) => {
+    const dataDoMes = new Date(hoje.getFullYear(), hoje.getMonth() - (5 - i), 1);
+    const chave = `${dataDoMes.getFullYear()}-${String(dataDoMes.getMonth() + 1).padStart(2, "0")}`;
+    const doMes = listaSeisMeses.filter((t) => t.data.slice(0, 7) === chave);
+    return {
+      mes: dataDoMes
+        .toLocaleDateString("pt-BR", { month: "short" })
+        .replace(".", ""),
+      receitas: doMes.filter((t) => t.tipo === "receita").reduce((s, t) => s + t.valor, 0),
+      despesas: doMes.filter((t) => t.tipo === "despesa").reduce((s, t) => s + t.valor, 0),
+    };
+  });
+
+  // Comparação com o mês imediatamente anterior
+  const mesAnteriorRef = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+  const chaveMesAnterior = `${mesAnteriorRef.getFullYear()}-${String(mesAnteriorRef.getMonth() + 1).padStart(2, "0")}`;
+  const transacoesMesAnterior = listaSeisMeses.filter(
+    (t) => t.data.slice(0, 7) === chaveMesAnterior
+  );
+  const receitasMesAnterior = transacoesMesAnterior
+    .filter((t) => t.tipo === "receita")
+    .reduce((s, t) => s + t.valor, 0);
+  const despesasMesAnterior = transacoesMesAnterior
+    .filter((t) => t.tipo === "despesa")
+    .reduce((s, t) => s + t.valor, 0);
+
+  // Média dos meses anteriores ao atual dentro da janela de 6 meses (não conta o mês atual)
+  const mesesAnteriores = evolucaoMensal.slice(0, -1);
+  const mediaReceitasRecente =
+    mesesAnteriores.length > 0
+      ? mesesAnteriores.reduce((s, m) => s + m.receitas, 0) / mesesAnteriores.length
+      : 0;
+  const mediaDespesasRecente =
+    mesesAnteriores.length > 0
+      ? mesesAnteriores.reduce((s, m) => s + m.despesas, 0) / mesesAnteriores.length
+      : 0;
+
+  // Saldo acumulado ao final de cada um dos últimos 6 meses, trabalhando de
+  // trás pra frente a partir do saldo atual (mantém consistência com o
+  // "Saldo total" mostrado no card, seja qual for a metodologia dele).
+  const saldoAcumulado: PontoSaldo[] = new Array(evolucaoMensal.length);
+  saldoAcumulado[evolucaoMensal.length - 1] = {
+    mes: evolucaoMensal[evolucaoMensal.length - 1].mes,
+    saldo: saldoTotal,
+  };
+  for (let i = evolucaoMensal.length - 2; i >= 0; i--) {
+    const proximoMes = evolucaoMensal[i + 1];
+    saldoAcumulado[i] = {
+      mes: evolucaoMensal[i].mes,
+      saldo: saldoAcumulado[i + 1].saldo - (proximoMes.receitas - proximoMes.despesas),
+    };
+  }
+
   return (
     <div>
       <CabecalhoPagina
@@ -132,7 +205,7 @@ export default async function DashboardPage() {
         acao={
           <Link
             href="/transacoes/novo"
-            className="inline-flex items-center gap-2 rounded-md bg-gradient-to-b from-[#E4C155] to-[#C9A227] px-4 py-2.5 text-sm font-medium text-bg shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_4px_14px_-2px_var(--gold-glow)] transition-all hover:brightness-105"
+            className="inline-flex items-center gap-2 rounded-md bg-gradient-to-b from-[var(--gold-light)] to-[var(--gold)] px-4 py-2.5 text-sm font-medium text-[var(--on-accent)] shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_4px_14px_-2px_var(--gold-glow)] transition-all hover:brightness-105"
           >
             <Plus size={16} />
             Lançar
@@ -164,6 +237,15 @@ export default async function DashboardPage() {
           <p className="mt-3 font-[family-name:var(--font-numeric)] text-3xl text-sage">
             {formatarMoeda(receitasMes)}
           </p>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+            <SeloComparacao atual={receitasMes} anterior={receitasMesAnterior} positivoEBom />
+            <SeloComparacao
+              atual={receitasMes}
+              anterior={mediaReceitasRecente}
+              positivoEBom
+              rotulo="vs média recente"
+            />
+          </div>
         </Card>
         <Card className="overflow-hidden border-l-2 border-l-brick">
           <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-text-muted">
@@ -175,6 +257,34 @@ export default async function DashboardPage() {
           <p className="mt-3 font-[family-name:var(--font-numeric)] text-3xl text-brick">
             {formatarMoeda(despesasMes)}
           </p>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+            <SeloComparacao atual={despesasMes} anterior={despesasMesAnterior} positivoEBom={false} />
+            <SeloComparacao
+              atual={despesasMes}
+              anterior={mediaDespesasRecente}
+              positivoEBom={false}
+              rotulo="vs média recente"
+            />
+          </div>
+        </Card>
+      </div>
+
+      <div className="mt-6 grid gap-4 px-5 md:grid-cols-2 md:px-8">
+        <Card>
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-sm text-text-muted">Evolução (últimos 6 meses)</p>
+            <Link
+              href="/relatorios"
+              className="text-xs text-gold hover:underline"
+            >
+              Ver resumo anual →
+            </Link>
+          </div>
+          <GraficoEvolucaoMensal dados={evolucaoMensal} />
+        </Card>
+        <Card>
+          <p className="mb-4 text-sm text-text-muted">Saldo acumulado</p>
+          <GraficoSaldoAcumulado dados={saldoAcumulado} />
         </Card>
       </div>
 

@@ -6,7 +6,7 @@ Finance IA é um aplicativo pessoal de controle financeiro, criado para substitu
 
 Este é um projeto de uso **estritamente pessoal** — não é multiusuário, não tem plano de virar um SaaS, e prioriza simplicidade de manutenção por uma única pessoa.
 
----
+--
 
 ## Por que este projeto existe
 
@@ -113,19 +113,6 @@ O elemento visual assinatura é a **"ledger row"**: uma linha com uma guia ponti
    Acesse [http://localhost:3000](http://localhost:3000).
 
 6. Crie sua conta pela própria tela de cadastro do app. Depois, em **Categorias**, use o botão **"Usar categorias padrão"** para começar rápido, e em **Contas**, cadastre pelo menos uma conta.
-
-## Como subir alterações para o GitHub
-
-Depois de fazer mudanças no projeto, use esta sequência para enviar para o repositório remoto:
-
-```bash
-git status
-git add .
-git commit -m "sua mensagem de commit"
-git push origin main
-```
-
-Se estiver em outra branch, troque `main` pelo nome da branch atual.
 
 ---
 

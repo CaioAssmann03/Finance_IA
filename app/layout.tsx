@@ -39,8 +39,25 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0F211A",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F6F8FB" },
+    { media: "(prefers-color-scheme: dark)", color: "#0A1220" },
+  ],
 };
+
+const SCRIPT_TEMA_INICIAL = `
+(function () {
+  try {
+    var tema = localStorage.getItem("financeia:tema");
+    if (!tema) {
+      tema = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    }
+    if (tema === "light") {
+      document.documentElement.setAttribute("data-theme", "light");
+    }
+  } catch (e) {}
+})();
+`;
 
 export default function RootLayout({
   children,
@@ -51,7 +68,11 @@ export default function RootLayout({
     <html
       lang="pt-BR"
       className={`${fraunces.variable} ${inter.variable} ${plexMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: SCRIPT_TEMA_INICIAL }} />
+      </head>
       <body
         className="min-h-full flex flex-col bg-bg text-text"
         suppressHydrationWarning

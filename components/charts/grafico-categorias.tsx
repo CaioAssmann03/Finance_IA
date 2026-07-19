@@ -19,16 +19,16 @@ export function GraficoCategorias({ dados }: { dados: FatiaCategoria[] }) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 sm:flex-row">
-      <div className="h-56 w-56 shrink-0">
+    <div className="flex w-full min-w-0 flex-col items-center gap-4 sm:flex-row sm:items-start">
+      <div className="h-44 w-44 shrink-0 sm:h-48 sm:w-48">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
               data={dados}
               dataKey="valor"
               nameKey="nome"
-              innerRadius={55}
-              outerRadius={90}
+              innerRadius={48}
+              outerRadius={78}
               paddingAngle={2}
               stroke="var(--bg)"
               strokeWidth={2}
@@ -51,18 +51,18 @@ export function GraficoCategorias({ dados }: { dados: FatiaCategoria[] }) {
         </ResponsiveContainer>
       </div>
 
-      <ul className="flex w-full flex-col gap-2">
+      <ul className="flex w-full min-w-0 flex-1 flex-col gap-2">
         {dados.map((fatia) => (
-          <li key={fatia.nome} className="ledger-row text-sm">
-            <span className="flex items-center gap-2 text-text-muted">
+          <li key={fatia.nome} className="ledger-row min-w-0 text-sm">
+            <span className="flex min-w-0 items-center gap-2 text-text-muted">
               <span
-                className="h-2 w-2 rounded-full"
+                className="h-2 w-2 shrink-0 rounded-full"
                 style={{ background: fatia.cor }}
               />
-              {fatia.nome}
+              <span className="truncate">{fatia.nome}</span>
             </span>
             <span className="ledger-leader" />
-            <span className="tabular">{formatarMoeda(fatia.valor)}</span>
+            <span className="tabular shrink-0">{formatarMoeda(fatia.valor)}</span>
           </li>
         ))}
       </ul>

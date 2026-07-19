@@ -10,7 +10,7 @@ export function Card({ className, interativo = false, ...props }: CardProps) {
   return (
     <div
       className={clsx(
-        "relative rounded-lg border border-hairline bg-surface p-5",
+        "relative min-w-0 rounded-lg border border-hairline bg-surface p-5",
         "shadow-[var(--shadow-card)]",
         "before:pointer-events-none before:absolute before:inset-0 before:rounded-lg before:bg-gradient-to-b before:from-white/[0.03] before:to-transparent",
         interativo &&

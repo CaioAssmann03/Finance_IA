@@ -43,7 +43,7 @@ export default async function TransacoesPage() {
             </Link>
             <Link
               href="/transacoes/novo"
-              className="inline-flex items-center gap-2 rounded-sm bg-gold px-4 py-2.5 text-sm font-medium text-bg hover:brightness-110"
+              className="inline-flex items-center gap-2 rounded-sm bg-gold px-4 py-2.5 text-sm font-medium text-[var(--on-accent)] hover:brightness-110"
             >
               <Plus size={16} />
               Lançar

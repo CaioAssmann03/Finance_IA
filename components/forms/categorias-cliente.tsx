@@ -6,10 +6,13 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { SeletorCor } from "@/components/ui/seletor-cor";
 import { CATEGORIAS_PADRAO } from "@/lib/categorias-padrao";
+import { PALETA_CATEGORIAS, corParaNovaCategoria } from "@/lib/paleta-categorias";
+import { iconeDaCategoria } from "@/lib/icones-categorias";
 import { mesReferenciaAtual } from "@/lib/utils/mes-referencia";
 import type { Categoria, Orcamento, TipoLancamento } from "@/types/database";
-import { Plus, Trash2, Sparkles } from "lucide-react";
+import { Plus, Trash2, Sparkles, Pencil, Palette } from "lucide-react";
 import clsx from "clsx";
 
 export function CategoriasCliente({
@@ -23,7 +26,9 @@ export function CategoriasCliente({
   const supabase = createClient();
   const [categorias, setCategorias] = useState(categoriasIniciais);
   const [modalAberto, setModalAberto] = useState(false);
+  const [editando, setEditando] = useState<Categoria | null>(null);
   const [criandoPadrao, setCriandoPadrao] = useState(false);
+  const [recolorindo, setRecolorindo] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -58,6 +63,32 @@ export function CategoriasCliente({
     }
   }
 
+  async function recolorirTodas() {
+    if (
+      !confirm(
+        "Isso vai trocar a cor de todas as suas categorias pela nova paleta, sem repetir cores entre elas. Continuar?"
+      )
+    )
+      return;
+
+    setRecolorindo(true);
+
+    const atualizadas = categorias.map((cat, i) => ({
+      ...cat,
+      cor: PALETA_CATEGORIAS[i % PALETA_CATEGORIAS.length],
+    }));
+
+    await Promise.all(
+      atualizadas.map((cat) =>
+        supabase.from("categorias").update({ cor: cat.cor }).eq("id", cat.id)
+      )
+    );
+
+    setCategorias(atualizadas);
+    setRecolorindo(false);
+    router.refresh();
+  }
+
   async function criarCategoria(e: React.FormEvent) {
     e.preventDefault();
     setErro(null);
@@ -75,7 +106,12 @@ export function CategoriasCliente({
 
     const { data, error } = await supabase
       .from("categorias")
-      .insert({ user_id: user!.id, nome: nome.trim(), tipo })
+      .insert({
+        user_id: user!.id,
+        nome: nome.trim(),
+        tipo,
+        cor: corParaNovaCategoria(categorias.map((c) => c.cor)),
+      })
       .select()
       .single();
 
@@ -103,6 +139,12 @@ export function CategoriasCliente({
     }
   }
 
+  function atualizarNaLista(atualizada: Categoria) {
+    setCategorias((atual) =>
+      atual.map((c) => (c.id === atualizada.id ? atualizada : c))
+    );
+  }
+
   const despesas = categorias.filter((c) => c.tipo === "despesa");
   const receitas = categorias.filter((c) => c.tipo === "receita");
 
@@ -123,6 +165,12 @@ export function CategoriasCliente({
             {criandoPadrao ? "Criando..." : "Usar categorias padrão"}
           </Button>
         )}
+        {categorias.length > 0 && (
+          <Button variant="ghost" onClick={recolorirTodas} disabled={recolorindo}>
+            <Palette size={16} />
+            {recolorindo ? "Recolorindo..." : "Recolorir com a paleta nova"}
+          </Button>
+        )}
       </div>
 
       {categorias.length === 0 ? (
@@ -137,11 +185,13 @@ export function CategoriasCliente({
               titulo="Despesas"
               itens={despesas}
               onExcluir={excluirCategoria}
+              onEditar={setEditando}
             />
             <ListaCategorias
               titulo="Receitas"
               itens={receitas}
               onExcluir={excluirCategoria}
+              onEditar={setEditando}
             />
           </div>
 
@@ -198,7 +248,82 @@ export function CategoriasCliente({
           </Button>
         </form>
       </Modal>
+
+      {editando && (
+        <ModalEdicaoCategoria
+          categoria={editando}
+          onFechar={() => setEditando(null)}
+          onSalvo={(c) => {
+            atualizarNaLista(c);
+            setEditando(null);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function ModalEdicaoCategoria({
+  categoria,
+  onFechar,
+  onSalvo,
+}: {
+  categoria: Categoria;
+  onFechar: () => void;
+  onSalvo: (c: Categoria) => void;
+}) {
+  const supabase = createClient();
+  const [nome, setNome] = useState(categoria.nome);
+  const [cor, setCor] = useState(categoria.cor);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  async function salvar(e: React.FormEvent) {
+    e.preventDefault();
+    setErro(null);
+
+    if (!nome.trim()) {
+      setErro("Dê um nome para a categoria.");
+      return;
+    }
+
+    setSalvando(true);
+
+    const { data, error } = await supabase
+      .from("categorias")
+      .update({ nome: nome.trim(), cor })
+      .eq("id", categoria.id)
+      .select()
+      .single();
+
+    setSalvando(false);
+
+    if (error || !data) {
+      setErro("Não foi possível salvar as alterações.");
+      return;
+    }
+
+    onSalvo(data as Categoria);
+  }
+
+  return (
+    <Modal aberto onFechar={onFechar} titulo="Editar categoria">
+      <form onSubmit={salvar} className="flex flex-col gap-4">
+        <Input label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
+
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm text-text-muted">Cor</label>
+          <SeletorCor valor={cor} onChange={setCor} />
+        </div>
+
+        {erro && <p className="text-sm text-brick">{erro}</p>}
+
+        <Button type="submit" disabled={salvando} className="mt-1 w-full">
+          {salvando ? "Salvando..." : "Salvar alterações"}
+        </Button>
+      </form>
+    </Modal>
   );
 }
 
@@ -206,10 +331,12 @@ function ListaCategorias({
   titulo,
   itens,
   onExcluir,
+  onEditar,
 }: {
   titulo: string;
   itens: Categoria[];
   onExcluir: (id: string) => void;
+  onEditar: (categoria: Categoria) => void;
 }) {
   return (
     <div>
@@ -220,27 +347,41 @@ function ListaCategorias({
         <p className="text-sm text-text-muted">Nenhuma categoria de {titulo.toLowerCase()}.</p>
       ) : (
         <ul className="flex flex-col divide-y divide-hairline rounded-md border border-hairline">
-          {itens.map((cat) => (
-            <li
-              key={cat.id}
-              className="flex items-center justify-between px-4 py-3 text-sm"
-            >
-              <span className="flex items-center gap-2">
-                <span
-                  className="h-2 w-2 rounded-full"
-                  style={{ background: cat.cor }}
-                />
-                {cat.nome}
-              </span>
-              <button
-                onClick={() => onExcluir(cat.id)}
-                className="text-text-muted hover:text-brick"
-                aria-label="Excluir categoria"
+          {itens.map((cat) => {
+            const Icone = iconeDaCategoria(cat.icone);
+            return (
+              <li
+                key={cat.id}
+                className="flex items-center justify-between px-4 py-3 text-sm"
               >
-                <Trash2 size={14} />
-              </button>
-            </li>
-          ))}
+                <span className="flex items-center gap-2.5">
+                  <span
+                    className="flex h-6 w-6 items-center justify-center rounded-full"
+                    style={{ background: `${cat.cor}26`, color: cat.cor }}
+                  >
+                    <Icone size={13} strokeWidth={2} />
+                  </span>
+                  {cat.nome}
+                </span>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => onEditar(cat)}
+                    className="text-text-muted hover:text-gold"
+                    aria-label="Editar categoria"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    onClick={() => onExcluir(cat.id)}
+                    className="text-text-muted hover:text-brick"
+                    aria-label="Excluir categoria"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -277,7 +418,6 @@ function OrcamentoMensal({
     } = await supabase.auth.getUser();
 
     if (!texto || numero <= 0) {
-      // limite vazio ou zero = remover orçamento dessa categoria no mês
       await supabase
         .from("orcamentos")
         .delete()
