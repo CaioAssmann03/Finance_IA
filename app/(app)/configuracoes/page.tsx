@@ -3,6 +3,7 @@ import { CabecalhoPagina } from "@/components/layout/cabecalho-pagina";
 import { NotificacoesCliente } from "@/components/notificacoes/notificacoes-cliente";
 import { Card } from "@/components/ui/card";
 import { AlternadorTema } from "@/components/tema/alternador-tema";
+import { BotaoSair } from "@/components/auth/botao-sair";
 
 export default async function ConfiguracoesPage() {
   const supabase = await createClient();
@@ -17,6 +18,9 @@ export default async function ConfiguracoesPage() {
         <Card className="max-w-lg">
           <p className="font-medium">Conta</p>
           <p className="mt-1 text-sm text-text-muted">{user?.email}</p>
+          <div className="mt-3">
+            <BotaoSair />
+          </div>
         </Card>
 
         <Card className="max-w-lg">

@@ -116,6 +116,14 @@ Com isso, as 9 ideias sugeridas estão todas feitas, exceto a nº 9 (confirmar d
 - **Variáveis de ambiente**: o primeiro deploy falhou porque `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY` não estavam configuradas em Settings → Environment Variables do projeto na Vercel (mesmo problema clássico do `.env.local` faltando, só que no ambiente de build remoto). Resolvido pelo usuário direto no painel da Vercel.
 - **`middleware.ts` → `proxy.ts`**: o Next.js 16 renomeou a convenção de arquivo `middleware` para `proxy` (aparecia como aviso amarelo no log de build, não travava o build, mas ia parar de funcionar de vez em versão futura do Next.js). Migração feita: arquivo renomeado, função `middleware()` renomeada para `proxy()`, `export const config` com o `matcher` ficou idêntico — só isso muda entre as duas convenções.
 
+## 🐛 Causa raiz do deploy "sempre desatualizado"
+
+Depois de várias rodadas de diagnóstico: existiam **dois repositórios diferentes** no GitHub do usuário (`Finanças_IA` público e `finanças_ia_2026` privado), e a integração Git da Vercel ficou presa reconstruindo sempre o commit inicial (`d839fb7`) de um deles, via sucessivos "Redeploy" (que reconstrói o mesmo commit, não busca o mais novo do GitHub). Resolvido reconectando o repositório certo na Vercel. Lição: **sempre confirmar com `git remote -v` e conferir qual repositório está conectado em Settings → Git na Vercel** antes de assumir que é bug de código.
+
+## 🔓 Botão de Sair
+
+- Faltava um jeito de fazer logout de dentro do app (só dava pra "sair" apagando cookies manualmente). Adicionado `components/auth/botao-sair.tsx`, chamando `supabase.auth.signOut()` e redirecionando pro `/login`. Fica no card "Conta" em `/configuracoes`.
+
 ---
 
 ## 🎨 Paleta de categorias + novos gráficos — 14/07/2026
