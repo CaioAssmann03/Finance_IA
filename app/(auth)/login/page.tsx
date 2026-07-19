@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 
 export default function LoginPage() {
   const router = useRouter();
+  const supabase = createClient();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
@@ -17,8 +18,6 @@ export default function LoginPage() {
     e.preventDefault();
     setErro(null);
     setCarregando(true);
-
-    const supabase = createClient();
 
     const { error } = await supabase.auth.signInWithPassword({
       email,

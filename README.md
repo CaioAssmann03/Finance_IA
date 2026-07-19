@@ -6,7 +6,7 @@ Finance IA é um aplicativo pessoal de controle financeiro, criado para substitu
 
 Este é um projeto de uso **estritamente pessoal** — não é multiusuário, não tem plano de virar um SaaS, e prioriza simplicidade de manutenção por uma única pessoa.
 
---
+---
 
 ## Por que este projeto existe
 
