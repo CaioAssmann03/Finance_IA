@@ -171,6 +171,16 @@ Nada disso mudou a estrutura ou o comportamento de nenhuma tela — é só CSS/c
 
 ---
 
+## ✨ Polimento — 14/07/2026 (parte 2)
+
+- **Mensagens de erro em português**: `lib/utils/erros-auth.ts` traduz as mensagens técnicas do Supabase (`"email rate limit exceeded"`, `"Invalid login credentials"`, etc.) pra um texto amigável. Aplicado em login, cadastro e esqueci-senha.
+- **Página 404 personalizada** (`app/not-found.tsx`): antes caía na página genérica do Next.js; agora segue a identidade visual do app, com link de volta pra Visão Geral.
+- **Limpeza do `.gitignore`**: adicionado `*.tsbuildinfo` (cache de build do TypeScript que não deveria estar versionado).
+
+> Nota sobre `AGENTS.md`/`CLAUDE.md`: esses arquivos não são gerados por mim — pertencem a outra ferramenta de IA (Claude Code, pelo nome) que o usuário também usa nesse repositório. Não interferem no funcionamento do app; podem conviver com o projeto ou ser removidos, dependendo se aquela ferramenta continua em uso.
+
+---
+
 ## 📌 Como continuar esta conversa depois
 
 Se esta conversa for encerrada, na próxima:

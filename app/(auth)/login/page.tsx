@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { traduzirErroAuth } from "@/lib/utils/erros-auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export default function LoginPage() {
     setCarregando(false);
 
     if (error) {
-      setErro("E-mail ou senha incorretos.");
+      setErro(traduzirErroAuth(error.message));
       return;
     }
 

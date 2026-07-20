@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { traduzirErroAuth } from "@/lib/utils/erros-auth";
 
 export default function EsqueciSenhaPage() {
   const supabase = createClient();
@@ -24,7 +25,7 @@ export default function EsqueciSenhaPage() {
     setCarregando(false);
 
     if (error) {
-      setErro("Não foi possível enviar o e-mail. Confira o endereço e tente de novo.");
+      setErro(traduzirErroAuth(error.message));
       return;
     }
 

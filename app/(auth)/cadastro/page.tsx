@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { traduzirErroAuth } from "@/lib/utils/erros-auth";
 
 export default function CadastroPage() {
   const router = useRouter();
@@ -31,7 +32,7 @@ export default function CadastroPage() {
     setCarregando(false);
 
     if (error) {
-      setErro(error.message);
+      setErro(traduzirErroAuth(error.message));
       return;
     }
 
