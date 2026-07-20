@@ -1,37 +1,53 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-export default function LoginPage() {
-  const router = useRouter();
+export default function EsqueciSenhaPage() {
   const supabase = createClient();
   const [email, setEmail] = useState("");
-  const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
+  const [enviado, setEnviado] = useState(false);
   const [carregando, setCarregando] = useState(false);
 
-  async function entrar(e: React.FormEvent) {
+  async function enviar(e: React.FormEvent) {
     e.preventDefault();
     setErro(null);
     setCarregando(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: senha,
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/confirmando`,
     });
 
     setCarregando(false);
 
     if (error) {
-      setErro("E-mail ou senha incorretos.");
+      setErro("Não foi possível enviar o e-mail. Confira o endereço e tente de novo.");
       return;
     }
 
-    router.push("/dashboard");
+    setEnviado(true);
+  }
+
+  if (enviado) {
+    return (
+      <main className="flex flex-1 items-center justify-center px-4 text-center">
+        <div className="max-w-sm">
+          <h1 className="font-[family-name:var(--font-display)] text-2xl">
+            Confira seu e-mail
+          </h1>
+          <p className="mt-3 text-sm text-text-muted">
+            Se {email} estiver cadastrado, enviamos um link pra redefinir a
+            senha. Ele expira em algumas horas.
+          </p>
+          <a href="/login" className="mt-6 inline-block text-sm text-gold hover:underline">
+            Voltar para o login
+          </a>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -42,13 +58,14 @@ export default function LoginPage() {
             Finance IA
           </p>
           <h1 className="mt-2 font-[family-name:var(--font-display)] text-3xl">
-            Seu livro-caixa,
-            <br />
-            sem planilha.
+            Esqueci minha senha
           </h1>
+          <p className="mt-2 text-sm text-text-muted">
+            Informe seu e-mail e enviamos um link pra você criar uma senha nova.
+          </p>
         </div>
 
-        <form onSubmit={entrar} className="flex flex-col gap-4">
+        <form onSubmit={enviar} className="flex flex-col gap-4">
           <Input
             id="email"
             type="email"
@@ -58,35 +75,18 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <div className="flex flex-col gap-1.5">
-            <Input
-              id="senha"
-              type="password"
-              label="Senha"
-              placeholder="••••••••"
-              value={senha}
-              onChange={(e) => setSenha(e.target.value)}
-              required
-            />
-            <a
-              href="/esqueci-senha"
-              className="self-end text-xs text-text-muted hover:text-gold"
-            >
-              Esqueci minha senha
-            </a>
-          </div>
 
           {erro && <p className="text-sm text-brick">{erro}</p>}
 
           <Button type="submit" disabled={carregando} className="mt-2 w-full">
-            {carregando ? "Entrando..." : "Entrar"}
+            {carregando ? "Enviando..." : "Enviar link de recuperação"}
           </Button>
         </form>
 
         <p className="mt-6 text-center text-sm text-text-muted">
-          Ainda não tem conta?{" "}
-          <a href="/cadastro" className="text-gold hover:underline">
-            Criar conta
+          Lembrou a senha?{" "}
+          <a href="/login" className="text-gold hover:underline">
+            Entrar
           </a>
         </p>
       </div>

@@ -158,6 +158,19 @@ Nada disso mudou a estrutura ou o comportamento de nenhuma tela — é só CSS/c
 
 ---
 
+## 🔐 Autenticação completa — 14/07/2026
+
+- **Confirmação de e-mail corrigida**: o link do e-mail de cadastro dava erro porque não existia nenhuma rota no app pra processar o token que o Supabase manda.
+  - **Tentativa 1** (`app/auth/confirm/route.ts`, com `token_hash`): exigia editar o conteúdo do template de e-mail no painel do Supabase — só que, desde junho de 2026, a Supabase **bloqueou a edição do corpo do e-mail no plano gratuito** a não ser que se configure um SMTP próprio (com domínio verificado). Não fazia sentido pra um projeto pessoal.
+  - **Solução usada** (`app/(auth)/confirmando/page.tsx`): em vez de mudar o conteúdo do e-mail (bloqueado), a gente controla o destino do link **direto no código**, com o parâmetro `emailRedirectTo` (no `signUp()`) e `redirectTo` (no `resetPasswordForEmail()`). O Supabase gera o link do e-mail usando esse destino automaticamente, sem precisar editar template nenhum. A página `/confirmando` roda no navegador, deixa o cliente do Supabase processar o token que vem na URL (o pacote já faz isso sozinho), descobre se é confirmação de cadastro ou recuperação de senha, e manda pro lugar certo (`/dashboard` ou `/redefinir-senha`).
+  - **Ação necessária no painel do Supabase** (isso não dá pra fazer por código): em **Authentication → URL Configuration**, o **Site URL** precisa estar com a URL de produção (ex: `https://financeia2026.vercel.app`), e em **Redirect URLs**, adicionar `https://SEU-DOMINIO.vercel.app/confirmando` (ou um wildcard tipo `https://SEU-DOMINIO.vercel.app/**`) — sem isso o Supabase recusa o redirecionamento por segurança.
+- **Esqueci minha senha**: link novo na tela de login → `/esqueci-senha` (pede o e-mail, chama `resetPasswordForEmail`) → usuário recebe e-mail → cai em `/redefinir-senha` (define a senha nova).
+- **Sair da conta**: `components/auth/botao-sair.tsx`, em Configurações.
+- **Excluir conta**: `components/auth/botao-excluir-conta.tsx`, em Configurações → "Zona de perigo". Pede a pessoa digitar "EXCLUIR" pra confirmar (ação irreversível). Por trás, chama `POST /api/conta/excluir`, que usa um cliente administrativo do Supabase (`lib/supabase/admin.ts`, com a `SUPABASE_SERVICE_ROLE_KEY`) pra apagar o usuário de verdade — as tabelas todas têm `on delete cascade` pro `user_id`, então contas/categorias/transações/metas/orçamentos somem juntos automaticamente.
+  - **Ação necessária**: adicionar `SUPABASE_SERVICE_ROLE_KEY` no `.env.local` (valor em Project Settings → API → `service_role`, no painel do Supabase — é uma chave "secret", nunca deve aparecer no navegador) **e** nas variáveis de ambiente da Vercel (Settings → Environment Variables), senão o botão de excluir conta dá erro em produção.
+
+---
+
 ## 📌 Como continuar esta conversa depois
 
 Se esta conversa for encerrada, na próxima:

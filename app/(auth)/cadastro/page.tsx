@@ -20,7 +20,13 @@ export default function CadastroPage() {
     setErro(null);
     setCarregando(true);
 
-    const { error } = await supabase.auth.signUp({ email, password: senha });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password: senha,
+      options: {
+        emailRedirectTo: `${window.location.origin}/confirmando`,
+      },
+    });
 
     setCarregando(false);
 

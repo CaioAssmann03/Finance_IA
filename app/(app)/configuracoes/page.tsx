@@ -4,6 +4,7 @@ import { NotificacoesCliente } from "@/components/notificacoes/notificacoes-clie
 import { Card } from "@/components/ui/card";
 import { AlternadorTema } from "@/components/tema/alternador-tema";
 import { BotaoSair } from "@/components/auth/botao-sair";
+import { BotaoExcluirConta } from "@/components/auth/botao-excluir-conta";
 
 export default async function ConfiguracoesPage() {
   const supabase = await createClient();
@@ -32,6 +33,16 @@ export default async function ConfiguracoesPage() {
         </Card>
 
         <NotificacoesCliente />
+
+        <Card className="max-w-lg border-brick/30">
+          <p className="font-medium text-brick">Zona de perigo</p>
+          <p className="mt-1 text-sm text-text-muted">
+            Excluir sua conta apaga todos os seus dados permanentemente.
+          </p>
+          <div className="mt-3">
+            <BotaoExcluirConta />
+          </div>
+        </Card>
       </div>
     </div>
   );
