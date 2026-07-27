@@ -14,8 +14,9 @@ import {
   paraNumero,
 } from "@/lib/importacao/parse-csv";
 import { lerArquivoComCodificacao } from "@/lib/importacao/ler-arquivo";
+import { lerLinhasDaPlanilhaExcel, ehArquivoExcel } from "@/lib/importacao/parse-excel";
 import type { Conta, Categoria } from "@/types/database";
-import { Upload, FileText } from "lucide-react";
+import { Upload, FileText, ArrowLeftRight } from "lucide-react";
 import clsx from "clsx";
 
 type Etapa = "upload" | "mapear" | "revisar" | "concluido";
@@ -77,6 +78,18 @@ export function ImportarExtratoCliente({
     setErro(null);
     setNomeArquivo(arquivo.name);
 
+    // Excel de verdade (.xls/.xlsx) é binário — não dá pra ler como texto,
+    // senão vira uma bagunça de uma coluna só. Usa o SheetJS pra isso.
+    if (ehArquivoExcel(arquivo.name)) {
+      try {
+        const brutas = await lerLinhasDaPlanilhaExcel(arquivo);
+        prepararMapeamento(brutas);
+      } catch {
+        setErro("Não consegui ler essa planilha. Confira se o arquivo não está corrompido.");
+      }
+      return;
+    }
+
     const conteudo = await lerArquivoComCodificacao(arquivo);
     const ehOfx = /<OFX>/i.test(conteudo) || /\.ofx$/i.test(arquivo.name);
 
@@ -93,10 +106,14 @@ export function ImportarExtratoCliente({
 
     const brutas = lerLinhasBrutas(conteudo);
     if (brutas.length === 0) {
-      setErro("Não consegui ler esse CSV. Confira se o arquivo não está vazio.");
+      setErro("Não consegui ler esse arquivo. Confira se não está vazio.");
       return;
     }
 
+    prepararMapeamento(brutas);
+  }
+
+  function prepararMapeamento(brutas: string[][]) {
     const iCabecalho = sugerirLinhaCabecalho(brutas);
     setLinhasBrutas(brutas);
     setIndiceCabecalho(iCabecalho);
@@ -197,6 +214,25 @@ export function ImportarExtratoCliente({
     );
   }
 
+  function mudarDescricaoLinha(indice: number, descricao: string) {
+    setLinhas((atual) =>
+      atual.map((l, i) => (i === indice ? { ...l, descricao } : l))
+    );
+  }
+
+  function inverterTipoDeTodas() {
+    setLinhas((atual) =>
+      atual.map((l) => {
+        const novoTipo = l.tipo === "despesa" ? "receita" : "despesa";
+        return {
+          ...l,
+          tipo: novoTipo,
+          categoriaId: novoTipo === "despesa" ? categoriaDespesaPadrao : categoriaReceitaPadrao,
+        };
+      })
+    );
+  }
+
   function aplicarCategoriaATodos(tipo: "despesa" | "receita", categoriaId: string) {
     setLinhas((atual) =>
       atual.map((l) => (l.tipo === tipo ? { ...l, categoriaId } : l))
@@ -260,14 +296,14 @@ export function ImportarExtratoCliente({
           <p className="mt-3 font-medium">Envie o extrato do seu banco ou cartão</p>
           <p className="mt-1 text-sm text-text-muted">
             Aceita arquivos <strong>.OFX</strong> (a maioria dos bancos exporta
-            esse formato) ou <strong>.CSV</strong>.
+            esse formato), <strong>.CSV</strong> ou planilha <strong>.XLS/.XLSX</strong>.
           </p>
           <label className="mt-5 inline-flex cursor-pointer items-center gap-2 rounded-sm bg-gold px-4 py-2.5 text-sm font-medium text-[var(--on-accent)] hover:brightness-110">
             <FileText size={16} />
             Escolher arquivo
             <input
               type="file"
-              accept=".ofx,.csv,.txt"
+              accept=".ofx,.csv,.txt,.xls,.xlsx"
               onChange={lidarComArquivo}
               className="hidden"
             />
@@ -456,7 +492,7 @@ export function ImportarExtratoCliente({
             </p>
           </div>
 
-          <div className="mb-4 flex flex-wrap gap-3 text-sm">
+          <div className="mb-4 flex flex-wrap items-center gap-3 text-sm">
             <AplicarCategoriaRapida
               rotulo="Categoria p/ todas as despesas"
               categorias={categorias.filter((c) => c.tipo === "despesa")}
@@ -467,6 +503,15 @@ export function ImportarExtratoCliente({
               categorias={categorias.filter((c) => c.tipo === "receita")}
               onEscolher={(id) => aplicarCategoriaATodos("receita", id)}
             />
+            <button
+              type="button"
+              onClick={inverterTipoDeTodas}
+              className="flex items-center gap-1.5 rounded-sm border border-hairline px-2.5 py-1.5 text-xs text-text-muted hover:border-hairline-strong hover:text-text"
+              title="Use se receita e despesa vierem trocadas (comum em fatura de cartão importada por OFX)"
+            >
+              <ArrowLeftRight size={12} />
+              Inverter receita/despesa de todas
+            </button>
           </div>
 
           <div className="max-h-[50vh] overflow-y-auto rounded-md border border-hairline">
@@ -486,8 +531,12 @@ export function ImportarExtratoCliente({
                     className="accent-gold"
                   />
                   <div className="min-w-[160px] flex-1">
-                    <p className="truncate">{l.descricao}</p>
-                    <p className="text-xs text-text-muted">{formatarData(l.data)}</p>
+                    <input
+                      value={l.descricao}
+                      onChange={(e) => mudarDescricaoLinha(i, e.target.value)}
+                      className="w-full truncate rounded-sm border border-transparent bg-transparent px-1 py-0.5 hover:border-hairline focus:border-gold focus:bg-surface focus:outline-none"
+                    />
+                    <p className="px-1 text-xs text-text-muted">{formatarData(l.data)}</p>
                   </div>
                   <span
                     className={clsx(

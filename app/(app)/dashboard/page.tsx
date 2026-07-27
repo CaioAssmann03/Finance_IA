@@ -7,31 +7,40 @@ import { GraficoSaldoAcumulado, type PontoSaldo } from "@/components/charts/graf
 import { SeloComparacao } from "@/components/dashboard/selo-comparacao";
 import { formatarMoeda, nomeDoMes, formatarData } from "@/lib/utils/formatters";
 import { gerarLancamentosDoMes } from "@/lib/recorrentes/gerar-lancamentos-do-mes";
-import { mesReferenciaAtual } from "@/lib/utils/mes-referencia";
-import { alertasDeContasFixas, alertasDeOrcamento } from "@/lib/notificacoes/calcular-alertas";
+import { alertasDeContasFixas, alertasDeOrcamento, proximoVencimento } from "@/lib/notificacoes/calcular-alertas";
 import { AlertasFinanceiros } from "@/components/notificacoes/alertas-financeiros";
+import { SeletorMesDashboard } from "@/components/dashboard/seletor-mes";
+import { ContasAPagar, type ContaAPagar } from "@/components/dashboard/contas-a-pagar";
 import type { Conta, Transacao, Categoria, Orcamento, TransacaoRecorrente } from "@/types/database";
 import Link from "next/link";
 import { Plus, Wallet, TrendingUp, TrendingDown } from "lucide-react";
 import clsx from "clsx";
 
-function inicioFimDoMes() {
-  const hoje = new Date();
-  const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
-  const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+function chaveMes(data: Date): string {
+  return `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function inicioFimDoMes(chave: string) {
+  const [ano, mes] = chave.split("-").map(Number);
+  const inicio = new Date(ano, mes - 1, 1);
+  const fim = new Date(ano, mes, 0);
   return {
     inicio: inicio.toISOString().slice(0, 10),
     fim: fim.toISOString().slice(0, 10),
   };
 }
 
-function inicioDosUltimosMeses(quantidade: number) {
-  const hoje = new Date();
-  const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - (quantidade - 1), 1);
+function inicioDosUltimosMeses(chaveFinal: string, quantidade: number) {
+  const [ano, mes] = chaveFinal.split("-").map(Number);
+  const inicio = new Date(ano, mes - 1 - (quantidade - 1), 1);
   return inicio.toISOString().slice(0, 10);
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ mes?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -41,8 +50,16 @@ export default async function DashboardPage() {
     await gerarLancamentosDoMes(supabase, user.id);
   }
 
-  const { inicio, fim } = inicioFimDoMes();
-  const inicioSeisMeses = inicioDosUltimosMeses(6);
+  const { mes: mesParam } = await searchParams;
+  const mesMaximo = chaveMes(new Date());
+  const mesSelecionado =
+    mesParam && /^\d{4}-\d{2}$/.test(mesParam) && mesParam <= mesMaximo
+      ? mesParam
+      : mesMaximo;
+  const vendoMesAtual = mesSelecionado === mesMaximo;
+
+  const { inicio, fim } = inicioFimDoMes(mesSelecionado);
+  const inicioSeisMeses = inicioDosUltimosMeses(mesSelecionado, 6);
 
   const [
     { data: contas },
@@ -64,7 +81,7 @@ export default async function DashboardPage() {
       supabase
         .from("orcamentos")
         .select("*")
-        .eq("mes_referencia", mesReferenciaAtual())
+        .eq("mes_referencia", `${mesSelecionado}-01`)
         .returns<Orcamento[]>(),
       supabase
         .from("transacoes_recorrentes")
@@ -141,11 +158,25 @@ export default async function DashboardPage() {
     ...alertasDeOrcamento(orcamentoPorCategoria),
   ];
 
-  // Série dos últimos 6 meses (receitas x despesas por mês)
+  const hojeReal = new Date();
+  const hojeSemHora = new Date(hojeReal.getFullYear(), hojeReal.getMonth(), hojeReal.getDate());
+  const contasAPagar: ContaAPagar[] = (recorrentesAtivas ?? [])
+    .map((r) => {
+      const vencimento = proximoVencimento(r.dia_do_mes, hojeReal);
+      const diasAte = Math.round(
+        (vencimento.getTime() - hojeSemHora.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      return { descricao: r.descricao || "Conta fixa", valor: r.valor, diasAte };
+    })
+    .filter((c) => c.diasAte >= 0 && c.diasAte <= 7)
+    .sort((a, b) => a.diasAte - b.diasAte);
+
+  // Série dos últimos 6 meses até o mês selecionado (receitas x despesas por mês)
   const listaSeisMeses = transacoesSeisMeses ?? [];
-  const hoje = new Date();
+  const [anoSel, mesSel] = mesSelecionado.split("-").map(Number);
+  const dataMesSelecionado = new Date(anoSel, mesSel - 1, 1);
   const evolucaoMensal: PontoEvolucaoMensal[] = Array.from({ length: 6 }).map((_, i) => {
-    const dataDoMes = new Date(hoje.getFullYear(), hoje.getMonth() - (5 - i), 1);
+    const dataDoMes = new Date(dataMesSelecionado.getFullYear(), dataMesSelecionado.getMonth() - (5 - i), 1);
     const chave = `${dataDoMes.getFullYear()}-${String(dataDoMes.getMonth() + 1).padStart(2, "0")}`;
     const doMes = listaSeisMeses.filter((t) => t.data.slice(0, 7) === chave);
     return {
@@ -157,8 +188,8 @@ export default async function DashboardPage() {
     };
   });
 
-  // Comparação com o mês imediatamente anterior
-  const mesAnteriorRef = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
+  // Comparação com o mês imediatamente anterior ao selecionado
+  const mesAnteriorRef = new Date(dataMesSelecionado.getFullYear(), dataMesSelecionado.getMonth() - 1, 1);
   const chaveMesAnterior = `${mesAnteriorRef.getFullYear()}-${String(mesAnteriorRef.getMonth() + 1).padStart(2, "0")}`;
   const transacoesMesAnterior = listaSeisMeses.filter(
     (t) => t.data.slice(0, 7) === chaveMesAnterior
@@ -201,19 +232,22 @@ export default async function DashboardPage() {
     <div>
       <CabecalhoPagina
         titulo="Visão geral"
-        subtitulo={nomeDoMes()}
+        subtitulo={nomeDoMes(dataMesSelecionado)}
         acao={
-          <Link
-            href="/transacoes/novo"
-            className="inline-flex items-center gap-2 rounded-md bg-gradient-to-b from-[var(--gold-light)] to-[var(--gold)] px-4 py-2.5 text-sm font-medium text-[var(--on-accent)] shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_4px_14px_-2px_var(--gold-glow)] transition-all hover:brightness-105"
-          >
-            <Plus size={16} />
-            Lançar
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <SeletorMesDashboard mesAtual={mesSelecionado} mesMaximo={mesMaximo} />
+            <Link
+              href="/transacoes/novo"
+              className="inline-flex items-center gap-2 rounded-md bg-gradient-to-b from-[var(--gold-light)] to-[var(--gold)] px-4 py-2.5 text-sm font-medium text-[var(--on-accent)] shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_4px_14px_-2px_var(--gold-glow)] transition-all hover:brightness-105"
+            >
+              <Plus size={16} />
+              Lançar
+            </Link>
+          </div>
         }
       />
 
-      <AlertasFinanceiros alertas={alertas} />
+      {vendoMesAtual && <AlertasFinanceiros alertas={alertas} />}
 
       <div className="grid gap-4 px-5 md:grid-cols-3 md:px-8">
         <Card className="overflow-hidden border-l-2 border-l-gold">
@@ -320,6 +354,12 @@ export default async function DashboardPage() {
           )}
         </Card>
       </div>
+
+      {vendoMesAtual && (
+        <div className="mt-6 px-5 md:px-8">
+          <ContasAPagar itens={contasAPagar} />
+        </div>
+      )}
 
       {orcamentoPorCategoria.length > 0 && (
         <div className="mt-6 px-5 md:px-8">

@@ -181,6 +181,17 @@ Nada disso mudou a estrutura ou o comportamento de nenhuma tela — é só CSS/c
 
 ---
 
+## 🔧 Correções e funcionalidades pedidas pelo usuário — 14/07/2026
+
+1. **Importação de fatura de cartão quebrada em .xls/.csv**: causa raiz encontrada — arquivos `.xls`/`.xlsx` são binários, e o código tentava ler como texto puro (virava uma bagunça de "uma coluna só"). Adicionado `lib/importacao/parse-excel.ts` (usa a biblioteca `xlsx`/SheetJS) pra ler Excel de verdade. CSV também ficou mais robusto: `lerLinhasBrutas()` agora tenta vários delimitadores (`;`, tab, `,`) se a detecção automática falhar. Também adicionado um botão **"Inverter receita/despesa de todas"** na prévia da importação — resolve o caso comum de fatura de cartão em OFX vir com o sinal trocado (positivo = compra, ao contrário do extrato de conta corrente).
+   - ⚠️ **Nota de segurança**: o pacote `xlsx` tem uma vulnerabilidade conhecida (prototype pollution / ReDoS) sem correção publicada no npm — a SheetJS só disponibiliza o patch no site próprio deles, fora do registro do npm. Como o único arquivo que passa por esse parser é o extrato do próprio usuário (não upload de terceiros), o risco é baixo pra esse projeto pessoal. Se um dia isso incomodar, dá pra trocar pela versão corrigida hospedada em `https://cdn.sheetjs.com`.
+2. **Editar nome do lançamento na importação**: a descrição de cada linha na prévia agora é um campo de texto editável, não só leitura.
+3. **"Conta fixa do iFood bugada"**: causa provável — não dava pra corrigir uma recorrência já criada (só pausar/excluir). Adicionada edição completa em `/transacoes/recorrentes` (descrição, valor, dia do mês, categoria, conta).
+4. **Filtro de mês na Visão Geral**: o dashboard antes só mostrava o mês corrente. Agora aceita `?mes=AAAA-MM` na URL, com um seletor (`components/dashboard/seletor-mes.tsx`) com setas de navegação + dropdown listando os últimos 12 meses em **ordem crescente** (mais antigo primeiro), sem deixar avançar além do mês atual. Todos os gráficos/cards passam a refletir o mês escolhido; o card de alertas e o de "contas a pagar" só aparecem quando o mês selecionado é o mês real (não fazem sentido pra meses passados).
+5. **Contas a pagar da semana**: novo card `components/dashboard/contas-a-pagar.tsx` no dashboard, listando as contas fixas ativas que vencem nos próximos 7 dias, ordenadas pela mais próxima, com rótulo "Hoje"/"Amanhã"/"Em X dias".
+
+---
+
 ## 📌 Como continuar esta conversa depois
 
 Se esta conversa for encerrada, na próxima:

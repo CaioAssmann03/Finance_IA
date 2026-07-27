@@ -1,14 +1,33 @@
 import Papa from "papaparse";
 
-/** Lê um CSV genérico (delimitador , ou ; detectado automaticamente) e devolve
- * TODAS as linhas cruas, sem assumir qual é o cabeçalho — alguns bancos (ex:
- * Bradesco) colocam linhas de título antes da tabela, então quem decide qual
- * linha é o cabeçalho é a pessoa, olhando a prévia. */
+/** Lê um CSV genérico e devolve TODAS as linhas cruas, sem assumir qual é o
+ * cabeçalho — alguns bancos (ex: Bradesco) colocam linhas de título antes da
+ * tabela, então quem decide qual linha é o cabeçalho é a pessoa, olhando a
+ * prévia. Tenta primeiro deixar o Papaparse adivinhar o delimitador; se o
+ * resultado vier tudo numa coluna só (sinal de que a detecção falhou),
+ * tenta de novo forçando `;`, tab e `,`, nessa ordem, e fica com o que gerar
+ * mais colunas. */
 export function lerLinhasBrutas(conteudo: string): string[][] {
-  const resultado = Papa.parse<string[]>(conteudo.trim(), {
-    skipEmptyLines: true,
-  });
-  return (resultado.data ?? []).filter((l) => l.length > 0);
+  function parseCom(delimiter: string): string[][] {
+    const resultado = Papa.parse<string[]>(conteudo.trim(), {
+      delimiter,
+      skipEmptyLines: true,
+    });
+    return (resultado.data ?? []).filter((l) => l.length > 0);
+  }
+
+  const automatico = parseCom("");
+  const maiorContagemColunas = (linhas: string[][]) =>
+    Math.max(0, ...linhas.slice(0, 20).map((l) => l.length));
+
+  if (maiorContagemColunas(automatico) > 1) return automatico;
+
+  for (const delimiter of [";", "\t", ","]) {
+    const tentativa = parseCom(delimiter);
+    if (maiorContagemColunas(tentativa) > 1) return tentativa;
+  }
+
+  return automatico;
 }
 
 /** Sugere qual linha (índice) é o cabeçalho real: a que tem mais células
