@@ -192,6 +192,21 @@ Nada disso mudou a estrutura ou o comportamento de nenhuma tela — é só CSS/c
 
 ---
 
+## 🚫 IA desativada temporariamente — 14/07/2026
+
+O usuário decidiu não usar a categorização por texto nem o assistente por enquanto (custo/crédito da API da Anthropic). Removido da interface, mas **o código continua no projeto** pra reativar rápido quando quiser:
+
+- `components/forms/formulario-novo-lancamento.tsx`: removido o bloco "Lançamento rápido por texto" e a chamada pra `/api/ia/categorizar`.
+- `components/layout/nav-principal.tsx`: removido "Assistente" do menu (sidebar e barra inferior).
+- `app/(app)/assistente/page.tsx`: trocado o chat por um aviso "desligado por enquanto", usando o componente `PaginaEmConstrucao` já existente.
+- **Não apagado**: `app/api/ia/categorizar/route.ts`, `app/api/ia/perguntar/route.ts`, `lib/ia/anthropic.ts`, `components/forms/assistente-chat.tsx` continuam no projeto, só não estão mais acessíveis pela interface. Pra reativar no futuro: (1) devolver o bloco de texto rápido no formulário de lançamento, (2) devolver "Assistente" no `ITENS` do menu, (3) trocar o conteúdo de `app/(app)/assistente/page.tsx` de volta pro `<AssistenteChat />`.
+
+## ⚠️ Nota sobre continuidade das sessões
+
+O ambiente onde este projeto é construído (nesta conversa com o Claude) pode ser reiniciado entre uma resposta e outra em conversas muito longas, apagando os arquivos locais daquele lado. Quando isso acontece, o projeto é reconstruído automaticamente a partir do último `finance-ia.zip` já entregue — por isso é importante que você sempre tenha o zip mais recente salvo, e que este arquivo `PROGRESSO.md` esteja sempre atualizado: é a fonte de verdade de tudo que já foi feito.
+
+---
+
 ## 📌 Como continuar esta conversa depois
 
 Se esta conversa for encerrada, na próxima:

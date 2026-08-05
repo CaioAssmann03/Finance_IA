@@ -9,7 +9,6 @@ import {
   Wallet,
   Tags,
   Target,
-  Sparkles,
   Settings,
 } from "lucide-react";
 import { AlternadorTema } from "@/components/tema/alternador-tema";
@@ -20,7 +19,6 @@ const ITENS = [
   { href: "/contas", label: "Contas", icone: Wallet },
   { href: "/categorias", label: "Categorias", icone: Tags },
   { href: "/metas", label: "Metas", icone: Target },
-  { href: "/assistente", label: "Assistente", icone: Sparkles },
   { href: "/configuracoes", label: "Ajustes", icone: Settings },
 ];
 

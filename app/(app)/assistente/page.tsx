@@ -1,14 +1,10 @@
-import { CabecalhoPagina } from "@/components/layout/cabecalho-pagina";
-import { AssistenteChat } from "@/components/forms/assistente-chat";
+import { PaginaEmConstrucao } from "@/components/layout/pagina-em-construcao";
 
 export default function AssistentePage() {
   return (
-    <div>
-      <CabecalhoPagina
-        titulo="Assistente"
-        subtitulo="Pergunte sobre seus gastos"
-      />
-      <AssistenteChat />
-    </div>
+    <PaginaEmConstrucao
+      titulo="Assistente"
+      fase="quando a IA for reativada — desligada por enquanto para não gerar custo (ver docs/PROGRESSO.md)"
+    />
   );
 }
