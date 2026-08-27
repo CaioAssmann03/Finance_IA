@@ -5,7 +5,11 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAcaoUnica } from "@/lib/hooks/use-acao-unica";
 import { traduzirErroAuth } from "@/lib/utils/erros-auth";
+
+/** Mesmo mínimo do Supabase, mas checado antes de gastar uma requisição. */
+const MINIMO_SENHA = 8;
 
 export default function CadastroPage() {
   const router = useRouter();
@@ -14,22 +18,20 @@ export default function CadastroPage() {
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState(false);
-  const [carregando, setCarregando] = useState(false);
 
-  async function cadastrar(e: React.FormEvent) {
-    e.preventDefault();
+  async function cadastrar() {
     setErro(null);
-    setCarregando(true);
+
+    if (senha.length < MINIMO_SENHA)
+      return setErro(`A senha precisa ter pelo menos ${MINIMO_SENHA} caracteres.`);
 
     const { error } = await supabase.auth.signUp({
-      email,
+      email: email.trim(),
       password: senha,
       options: {
         emailRedirectTo: `${window.location.origin}/confirmando`,
       },
     });
-
-    setCarregando(false);
 
     if (error) {
       setErro(traduzirErroAuth(error.message));
@@ -38,6 +40,8 @@ export default function CadastroPage() {
 
     setSucesso(true);
   }
+
+  const { executar, executando: carregando } = useAcaoUnica(cadastrar);
 
   if (sucesso) {
     return (
@@ -70,7 +74,13 @@ export default function CadastroPage() {
           </h1>
         </div>
 
-        <form onSubmit={cadastrar} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            executar();
+          }}
+          className="flex flex-col gap-4"
+        >
           <Input
             id="email"
             type="email"
@@ -84,14 +94,19 @@ export default function CadastroPage() {
             id="senha"
             type="password"
             label="Senha"
-            placeholder="mínimo 6 caracteres"
-            minLength={6}
+            autoComplete="new-password"
+            placeholder={`mínimo ${MINIMO_SENHA} caracteres`}
+            minLength={MINIMO_SENHA}
             value={senha}
             onChange={(e) => setSenha(e.target.value)}
             required
           />
 
-          {erro && <p className="text-sm text-brick">{erro}</p>}
+          {erro && (
+            <p role="alert" className="text-sm text-brick">
+              {erro}
+            </p>
+          )}
 
           <Button type="submit" disabled={carregando} className="mt-2 w-full">
             {carregando ? "Criando..." : "Criar conta"}

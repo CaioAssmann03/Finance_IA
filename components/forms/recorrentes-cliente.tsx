@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { formatarMoeda } from "@/lib/utils/formatters";
+import { useAcaoUnica } from "@/lib/hooks/use-acao-unica";
+import { validarValorMonetario } from "@/lib/utils/valores";
+import { mensagemDeErroBanco } from "@/lib/utils/erros-banco";
 import type { Conta, Categoria, TransacaoRecorrente } from "@/types/database";
 import { Trash2, Pause, Play, Pencil } from "lucide-react";
 import clsx from "clsx";
@@ -25,8 +28,11 @@ export function RecorrentesCliente({
   const [recorrentes, setRecorrentes] = useState(recorrentesIniciais);
   const [editando, setEditando] = useState<TransacaoRecorrente | null>(null);
 
-  const mapaCategorias = new Map(categorias.map((c) => [c.id, c]));
-  const mapaContas = new Map(contas.map((c) => [c.id, c]));
+  const mapaCategorias = useMemo(
+    () => new Map(categorias.map((c) => [c.id, c])),
+    [categorias]
+  );
+  const mapaContas = useMemo(() => new Map(contas.map((c) => [c.id, c])), [contas]);
 
   async function alternarAtivo(recorrente: TransacaoRecorrente) {
     const { error } = await supabase
@@ -51,14 +57,13 @@ export function RecorrentesCliente({
       )
     )
       return;
-    const { error } = await supabase
-      .from("transacoes_recorrentes")
-      .delete()
-      .eq("id", id);
-    if (!error) {
-      setRecorrentes((atual) => atual.filter((r) => r.id !== id));
-      router.refresh();
+    const { error } = await supabase.from("transacoes_recorrentes").delete().eq("id", id);
+    if (error) {
+      alert(mensagemDeErroBanco(error.message));
+      return;
     }
+    setRecorrentes((atual) => atual.filter((r) => r.id !== id));
+    router.refresh();
   }
 
   function atualizarNaLista(atualizada: TransacaoRecorrente) {
@@ -167,26 +172,23 @@ function ModalEdicaoRecorrente({
   const [diaDoMes, setDiaDoMes] = useState(String(recorrente.dia_do_mes));
   const [categoriaId, setCategoriaId] = useState(recorrente.categoria_id);
   const [contaId, setContaId] = useState(recorrente.conta_id);
-  const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  async function salvar(e: React.FormEvent) {
-    e.preventDefault();
+  async function salvar() {
     setErro(null);
 
     const diaNumero = Number(diaDoMes);
-    if (diaNumero < 1 || diaNumero > 31) {
-      setErro("O dia do mês precisa estar entre 1 e 31.");
-      return;
-    }
+    if (!Number.isInteger(diaNumero) || diaNumero < 1 || diaNumero > 31)
+      return setErro("O dia do mês precisa ser um número inteiro entre 1 e 31.");
 
-    setSalvando(true);
+    const valorValidado = validarValorMonetario(valor);
+    if (!valorValidado.ok) return setErro(valorValidado.erro!);
 
     const { data, error } = await supabase
       .from("transacoes_recorrentes")
       .update({
-        descricao: descricao.trim(),
-        valor: Number(valor.replace(",", ".")),
+        descricao: descricao.trim() || null,
+        valor: valorValidado.valor,
         dia_do_mes: diaNumero,
         categoria_id: categoriaId,
         conta_id: contaId,
@@ -195,19 +197,22 @@ function ModalEdicaoRecorrente({
       .select()
       .single();
 
-    setSalvando(false);
-
-    if (error || !data) {
-      setErro("Não foi possível salvar as alterações.");
-      return;
-    }
+    if (error || !data) return setErro(mensagemDeErroBanco(error?.message));
 
     onSalvo(data as TransacaoRecorrente);
   }
 
+  const { executar, executando: salvando } = useAcaoUnica(salvar);
+
   return (
     <Modal aberto onFechar={onFechar} titulo="Editar conta fixa">
-      <form onSubmit={salvar} className="flex flex-col gap-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          executar();
+        }}
+        className="flex flex-col gap-4"
+      >
         <Input
           label="Descrição"
           value={descricao}

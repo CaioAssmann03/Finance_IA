@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { formatarMoeda, formatarData } from "@/lib/utils/formatters";
+import { useAcaoUnica } from "@/lib/hooks/use-acao-unica";
+import { mensagemDeErroBanco } from "@/lib/utils/erros-banco";
 import { parseOFX, type TransacaoImportada } from "@/lib/importacao/parse-ofx";
 import {
   lerLinhasBrutas,
@@ -56,7 +58,6 @@ export function ImportarExtratoCliente({
 
   const [linhas, setLinhas] = useState<LinhaPreview[]>([]);
   const [contaId, setContaId] = useState(contas[0]?.id ?? "");
-  const [salvando, setSalvando] = useState(false);
   const [totalImportado, setTotalImportado] = useState(0);
 
   const categoriaDespesaPadrao = categorias.find((c) => c.tipo === "despesa")?.id ?? "";
@@ -255,29 +256,34 @@ export function ImportarExtratoCliente({
       setErro("Defina uma categoria para todos os lançamentos selecionados.");
       return;
     }
-
-    setSalvando(true);
+    if (selecionadas.some((l) => !(l.valor > 0))) {
+      setErro("Há linhas com valor zerado ou inválido. Desmarque-as antes de importar.");
+      return;
+    }
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
+    if (!user) {
+      setErro("Sua sessão expirou. Entre de novo para continuar.");
+      return;
+    }
+
     const registros = selecionadas.map((l) => ({
-      user_id: user!.id,
+      user_id: user.id,
       conta_id: contaId,
       categoria_id: l.categoriaId,
       tipo: l.tipo,
       valor: l.valor,
-      descricao: l.descricao,
+      descricao: l.descricao?.slice(0, 140) || null,
       data: l.data,
     }));
 
     const { error } = await supabase.from("transacoes").insert(registros);
 
-    setSalvando(false);
-
     if (error) {
-      setErro("Não foi possível salvar os lançamentos. Tente novamente.");
+      setErro(mensagemDeErroBanco(error.message));
       return;
     }
 
@@ -285,6 +291,9 @@ export function ImportarExtratoCliente({
     setEtapa("concluido");
     router.refresh();
   }
+
+  // Sem a trava, um duplo clique aqui importava o extrato inteiro duas vezes.
+  const { executar: importar, executando: salvando } = useAcaoUnica(confirmarImportacao);
 
   const selecionadasCount = linhas.filter((l) => l.incluir).length;
 
@@ -568,7 +577,7 @@ export function ImportarExtratoCliente({
           {erro && <p className="mt-3 text-sm text-brick">{erro}</p>}
 
           <Button
-            onClick={confirmarImportacao}
+            onClick={() => importar()}
             disabled={salvando}
             className="mt-4 w-full sm:w-auto"
           >

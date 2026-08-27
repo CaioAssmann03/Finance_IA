@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAcaoUnica } from "@/lib/hooks/use-acao-unica";
 import { traduzirErroAuth } from "@/lib/utils/erros-auth";
 
 export default function EsqueciSenhaPage() {
@@ -11,18 +12,13 @@ export default function EsqueciSenhaPage() {
   const [email, setEmail] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [enviado, setEnviado] = useState(false);
-  const [carregando, setCarregando] = useState(false);
 
-  async function enviar(e: React.FormEvent) {
-    e.preventDefault();
+  async function enviar() {
     setErro(null);
-    setCarregando(true);
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/confirmando`,
     });
-
-    setCarregando(false);
 
     if (error) {
       setErro(traduzirErroAuth(error.message));
@@ -31,6 +27,8 @@ export default function EsqueciSenhaPage() {
 
     setEnviado(true);
   }
+
+  const { executar, executando: carregando } = useAcaoUnica(enviar);
 
   if (enviado) {
     return (
@@ -66,7 +64,13 @@ export default function EsqueciSenhaPage() {
           </p>
         </div>
 
-        <form onSubmit={enviar} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            executar();
+          }}
+          className="flex flex-col gap-4"
+        >
           <Input
             id="email"
             type="email"
@@ -77,7 +81,11 @@ export default function EsqueciSenhaPage() {
             required
           />
 
-          {erro && <p className="text-sm text-brick">{erro}</p>}
+          {erro && (
+            <p role="alert" className="text-sm text-brick">
+              {erro}
+            </p>
+          )}
 
           <Button type="submit" disabled={carregando} className="mt-2 w-full">
             {carregando ? "Enviando..." : "Enviar link de recuperação"}

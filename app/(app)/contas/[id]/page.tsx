@@ -7,12 +7,19 @@ import type { Conta, Transacao, Categoria } from "@/types/database";
 import { notFound } from "next/navigation";
 import clsx from "clsx";
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default async function DetalheContaPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+
+  // Um id fora do formato UUID faria o Postgres devolver erro de cast e a
+  // página estourar 500 em vez de mostrar "não encontrado".
+  if (!UUID.test(id)) notFound();
+
   const supabase = await createClient();
 
   const { data: conta } = await supabase
@@ -35,6 +42,7 @@ export default async function DetalheContaPage({
       .select("*")
       .eq("conta_id", conta.id)
       .order("data", { ascending: false })
+      .order("criado_em", { ascending: false })
       .limit(100)
       .returns<Transacao[]>();
 
