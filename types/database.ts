@@ -70,12 +70,3 @@ export interface Meta {
   data_alvo: string | null;
   criado_em: string;
 }
-
-// Payload esperado da IA ao interpretar um lançamento em texto livre
-export interface SugestaoLancamentoIA {
-  valor: number;
-  categoria_sugerida: string;
-  descricao: string;
-  data: string; // ISO date
-  tipo: TipoLancamento;
-}

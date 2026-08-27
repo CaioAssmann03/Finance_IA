@@ -2,68 +2,68 @@
 
 **Seu livro-caixa pessoal, sem planilha.**
 
-Finance IA é um aplicativo pessoal de controle financeiro, criado para substituir de vez o uso de planilhas no dia a dia. A ideia é simples: lançar um gasto deve levar menos de 10 segundos, e entender para onde o dinheiro está indo não deveria exigir fórmulas, tabelas dinâmicas ou disciplina manual — o próprio app deve mostrar isso de forma clara, e com uma camada de inteligência artificial ajudando a interpretar os dados.
+Finance IA é um aplicativo pessoal de controle financeiro, criado para substituir de vez o uso de planilhas no dia a dia. A ideia é simples: lançar um gasto deve levar menos de 10 segundos, e entender para onde o dinheiro está indo não deveria exigir fórmulas, tabelas dinâmicas ou disciplina manual.
 
 Este é um projeto de uso **estritamente pessoal** — não é multiusuário, não tem plano de virar um SaaS, e prioriza simplicidade de manutenção por uma única pessoa.
+
+> **Sobre o nome:** o "IA" é herança da ideia original, que previa um assistente em linguagem natural. Essa camada foi removida do código (ver [Assistente com IA](#assistente-com-ia-removido)) e hoje o app é 100% cálculo direto no banco.
 
 ---
 
 ## Por que este projeto existe
 
-Planilha resolve, mas cansa: exige lançar manualmente, não sincroniza bem entre celular e computador, e não entrega nenhuma inteligência sobre os dados — só números. O Finance IA nasce para resolver três frustrações específicas:
+Planilha resolve, mas cansa: exige lançar manualmente, não sincroniza bem entre celular e computador, e não entrega nenhuma leitura sobre os dados — só números. O Finance IA nasce para resolver duas frustrações específicas:
 
-1. **Lançar um gasto é lento e chato** → aqui deve ser rápido, com um formulário direto ao ponto (e, na fase de IA, até por texto livre: *"50 mercado"* e o app entende sozinho).
+1. **Lançar um gasto é lento e chato** → aqui é um formulário direto ao ponto, com modos de lançamento único, conta fixa e parcelado.
 2. **Planilha não acompanha o celular direito** → aqui é um app web responsivo (PWA), com os mesmos dados no celular e no computador, sincronizados na nuvem.
-3. **Planilha só mostra números, não entende os números** → aqui existe (ou vai existir, ver Roadmap) um assistente que responde perguntas como *"quanto gastei com lazer esse mês?"* usando os dados reais do banco.
 
 ---
 
-## Estado atual do projeto
+## Estado atual
 
-🟢 **Em desenvolvimento ativo.** O MVP funcional básico já está de pé:
+🟢 **Em desenvolvimento ativo.**
 
 | Área | Status |
 |---|---|
-| Login e cadastro | ✅ Funcionando |
-| Dashboard (saldo, receitas x despesas, gráfico por categoria, maiores gastos) | ✅ Funcionando |
-| Contas e carteiras (criar, listar, excluir) | ✅ Funcionando |
-| Categorias (criar, listar, excluir, categorias padrão em 1 clique) | ✅ Funcionando |
-| Lançar transação | ✅ Funcionando |
-| Extrato (listar, filtrar, editar, excluir) | ✅ Funcionando |
-| Transações recorrentes e parceladas | ⬜ Não iniciado |
-| Fatura de cartão de crédito | ⬜ Não iniciado |
-| Orçamento por categoria com alerta | ⬜ Não iniciado |
-| Metas financeiras | ⬜ Não iniciado |
-| Assistente com IA (categorização automática e chat) | ⬜ Não iniciado |
-| PWA instalável no celular | ⬜ Não iniciado |
+| Login, cadastro e recuperação de senha | ✅ Funcionando |
+| Dashboard (saldo, receitas × despesas, gráficos, orçamento) | ✅ Funcionando |
+| Contas e carteiras | ✅ Funcionando |
+| Categorias e orçamento por categoria | ✅ Funcionando |
+| Lançamento único, conta fixa e parcelado | ✅ Funcionando |
+| Extrato (filtrar, editar, excluir, exportar CSV) | ✅ Funcionando |
+| Editar e excluir parcelamentos em série | ✅ Funcionando |
+| Fatura de cartão de crédito | ✅ Funcionando |
+| Metas financeiras | ✅ Funcionando |
+| Importar extrato (OFX, CSV, XLS/XLSX) | ✅ Funcionando |
+| Relatório anual | ✅ Funcionando |
+| PWA instalável e notificações de alerta | ✅ Funcionando |
+| Assistente com IA | ⬜ Removido do código |
 
-O detalhamento fino de cada item, incluindo o que exatamente falta em cada tela, está em [`docs/PROGRESSO.md`](./docs/PROGRESSO.md) — esse é o arquivo mais atualizado do projeto, use-o como fonte da verdade sobre o que já foi feito.
+O detalhamento fino está em [`docs/PROGRESSO.md`](./docs/PROGRESSO.md).
 
----
+### Assistente com IA (removido)
 
-## Como o produto foi pensado
+A integração com a API da Anthropic (categorização automática por texto livre e chat sobre os próprios gastos) foi **retirada do código**: as rotas `app/api/ia/*`, o cliente `lib/ia/anthropic.ts` e a tela do assistente não existem mais, e a variável `ANTHROPIC_API_KEY` deixou de ser necessária.
 
-A documentação completa de produto está na pasta [`docs/`](./docs):
-
-- [`01-prd-visao-geral.md`](./docs/01-prd-visao-geral.md) — visão geral, objetivos, funcionalidades do MVP e das fases futuras, telas principais.
-- [`02-arquitetura-tecnica.md`](./docs/02-arquitetura-tecnica.md) — stack escolhida e por quê, estrutura de pastas, fluxos de integração com IA, segurança, custos.
-- [`03-modelo-de-dados.md`](./docs/03-modelo-de-dados.md) — todas as tabelas do banco de dados e suas relações.
-- [`04-roadmap.md`](./docs/04-roadmap.md) — fases de construção, do MVP até os extras.
-- [`PROGRESSO.md`](./docs/PROGRESSO.md) — checklist vivo do que já foi feito e o que vem a seguir.
+O motivo é custo: eram rotas que chamavam uma API paga sem estarem em uso. A ideia segue no roadmap ([`docs/01-prd-visao-geral.md`](./docs/01-prd-visao-geral.md) e [`docs/02-arquitetura-tecnica.md`](./docs/02-arquitetura-tecnica.md) descrevem o desenho pretendido), e o histórico do git tem a implementação anterior caso valha retomar.
 
 ---
 
 ## Stack técnica
 
-| Camada | Tecnologia |
-|---|---|
-| Frontend | Next.js (App Router) + TypeScript |
-| Estilo | Tailwind CSS v4 |
-| Gráficos | Recharts |
-| Ícones | Lucide |
-| Backend / Banco de dados | Supabase (Postgres + Auth, com Row Level Security) |
-| IA (categorização e assistente) | API da Anthropic (Claude) — a integrar |
-| Hospedagem | Vercel |
+| Camada | Tecnologia | Versão |
+|---|---|---|
+| Framework | Next.js (App Router, Turbopack) | 16.2 |
+| Linguagem | TypeScript | 5 |
+| UI | React | 19.2 |
+| Estilo | Tailwind CSS | v4 (via `@tailwindcss/postcss`) |
+| Gráficos | Recharts | 3 |
+| Ícones | Lucide React | 1.24 |
+| Banco e autenticação | Supabase (Postgres + Auth + RLS) | `supabase-js` 2.110 / `ssr` 0.12 |
+| Importação de arquivos | PapaParse (CSV) + SheetJS `xlsx` (Excel) + parser próprio de OFX | — |
+| Hospedagem | Vercel | — |
+
+**Como as peças se encaixam.** As telas são Server Components que consultam o Supabase direto no servidor; a interatividade (formulários, filtros, modais) vive em Client Components que falam com o Supabase pelo navegador. Não existe camada de API própria entre os dois — a segurança fica no banco, via Row Level Security, e não em código de aplicação. As poucas rotas em `app/api/` existem só para o que precisa da chave de serviço ou não pode rodar no cliente.
 
 Um único código atende celular e computador (web responsivo / PWA) — não existe app nativo, por escolha, para manter o projeto simples de manter sozinho.
 
@@ -73,7 +73,7 @@ Um único código atende celular e computador (web responsivo / PWA) — não ex
 
 O app segue um tema visual próprio, batizado internamente de **"livro-caixa" (ledger)**: fundo em tom de tinta verde-escura, dourado como cor de destaque para valores e saldo, verde-sálvia para receitas, terracota para despesas. Tipografia serifada (Fraunces) nos títulos, Inter no corpo do texto, e IBM Plex Mono (monoespaçada) nos valores numéricos — para remeter à leitura de um extrato/livro-caixa físico, sem parecer uma planilha.
 
-O elemento visual assinatura é a **"ledger row"**: uma linha com uma guia pontilhada entre o rótulo e o valor, como em um extrato bancário antigo.
+O elemento visual assinatura é a **"ledger row"**: uma linha com uma guia pontilhada entre o rótulo e o valor, como em um extrato bancário antigo. Há tema claro e escuro, com a escolha guardada no navegador.
 
 ---
 
@@ -88,31 +88,54 @@ O elemento visual assinatura é a **"ledger row"**: uma linha com uma guia ponti
 1. Clone o repositório e instale as dependências:
    ```bash
    git clone https://github.com/CaioAssmann03/Finance_IA.git
-   cd Finance_IA
+   ```
+   ```bash
    npm install
    ```
 
 2. Crie um projeto no Supabase e copie a **Project URL** e a **anon key** em *Project Settings → API*.
 
-3. Copie o arquivo de exemplo de variáveis de ambiente e preencha com seus dados:
+3. Copie o arquivo de exemplo e preencha:
    ```bash
    cp .env.example .env.local
    ```
+
    ```
    NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=sua-chave-aqui
+   SUPABASE_SERVICE_ROLE_KEY=sua-chave-de-servico
    ```
-   > Atenção: a URL não deve incluir `/rest/v1/` no final.
 
-4. Rode a migração inicial do banco: abra `supabase/migrations/0001_init.sql`, copie o conteúdo e execute no **SQL Editor** do painel do Supabase.
+   > **A causa nº 1 de "não sobe":** colar uma chave (`sb_publishable_…` ou `eyJhbGci…`) no campo `NEXT_PUBLIC_SUPABASE_URL`. Ali vai a **URL**, no formato `https://xxxxxxxx.supabase.co`, sem `/rest/v1/` no final. O app detecta esse caso e diz exatamente o que corrigir.
 
-5. Suba o servidor de desenvolvimento:
+4. Rode as migrações **na ordem**, pelo **SQL Editor** do painel do Supabase:
+
+   | Arquivo | O que faz |
+   |---|---|
+   | `0001_init.sql` | tabelas e RLS |
+   | `0002_seed_categorias.sql` | categorias padrão (opcional — dá para criar pela tela) |
+   | `0003_integridade_e_seguranca.sql` | checagens de integridade, índices, gatilhos e RLS por operação |
+   | `0004_desempenho.sql` | função `saldo_ate` e índice de consulta por data |
+
+   As migrações 0003 e 0004 podem ser rodadas mais de uma vez sem quebrar. **Elas não são opcionais:** sem a 0003 as consultas do extrato fazem varredura completa das tabelas, e sem a 0004 o card de saldo do dashboard aparece como indisponível.
+
+5. Suba o servidor:
    ```bash
    npm run dev
    ```
    Acesse [http://localhost:3000](http://localhost:3000).
 
-6. Crie sua conta pela própria tela de cadastro do app. Depois, em **Categorias**, use o botão **"Usar categorias padrão"** para começar rápido, e em **Contas**, cadastre pelo menos uma conta.
+6. Crie sua conta pela tela de cadastro. Depois, em **Categorias**, use **"Usar categorias padrão"**, e em **Contas**, cadastre pelo menos uma conta.
+
+### Comandos
+
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | servidor de desenvolvimento |
+| `npm run build` | build de produção |
+| `npm start` | serve o build |
+| `npm run lint` | ESLint |
+| `npx tsc --noEmit` | checagem de tipos |
 
 ---
 
@@ -121,21 +144,45 @@ O elemento visual assinatura é a **"ledger row"**: uma linha com uma guia ponti
 ```
 Finance_IA/
 ├── app/
-│   ├── (auth)/          # login e cadastro
-│   ├── (app)/            # telas internas (protegidas por sessão)
-│   └── api/               # rotas de API (IA, etc.)
+│   ├── (auth)/                 # login, cadastro, recuperação de senha
+│   ├── (app)/                  # telas internas (protegidas por sessão)
+│   │   └── */loading.tsx       # esqueletos de carregamento por rota
+│   ├── api/conta/excluir/      # única rota de API (precisa da service role key)
+│   └── auth/confirm/           # troca o link do e-mail por uma sessão
 ├── components/
-│   ├── ui/                # botões, inputs, cards, modal
-│   ├── charts/             # gráficos
-│   ├── forms/              # formulários e telas client-side
-│   └── layout/             # navegação, cabeçalhos
+│   ├── ui/                     # botões, inputs, cards, modal
+│   ├── charts/                 # gráficos (Recharts)
+│   ├── forms/                  # formulários e telas client-side
+│   ├── dashboard/              # blocos da visão geral
+│   ├── notificacoes/           # alertas e notificações do navegador
+│   └── layout/                 # navegação, cabeçalhos, esqueletos
 ├── lib/
-│   ├── supabase/           # clients do Supabase (browser e server)
-│   └── utils/               # formatação de moeda, data, etc.
-├── types/                   # tipos TypeScript do banco de dados
-├── supabase/migrations/     # SQL das tabelas e políticas de segurança
-└── docs/                    # documentação completa do produto
+│   ├── supabase/               # clients (browser, server, admin) e validação de env
+│   ├── transacoes/             # regras de parcelamento
+│   ├── recorrentes/            # geração dos lançamentos de contas fixas
+│   ├── cartao/                 # cálculo do ciclo de fatura
+│   ├── importacao/             # parsers de OFX, CSV e Excel
+│   ├── notificacoes/           # cálculo dos alertas
+│   ├── hooks/                  # hooks compartilhados
+│   └── utils/                  # datas, valores, formatação, erros, limite de taxa
+├── types/                      # tipos TypeScript do banco
+├── supabase/migrations/        # SQL das tabelas, políticas e índices
+├── public/                     # ícones, manifesto e service worker do PWA
+└── docs/                       # documentação do produto e das rodadas de correção
 ```
+
+---
+
+## Decisões que valem conhecer antes de mexer
+
+Detalhadas em [`docs/06-correcoes-e-seguranca.md`](./docs/06-correcoes-e-seguranca.md). Em resumo:
+
+- **Datas nunca passam por `new Date(string)` nem por `toISOString()`.** A coluna `data` é `date`, sem hora, e o construtor nativo interpreta `"2026-08-27"` como meia-noite em UTC — no Brasil, 21h do dia anterior. Use sempre `lib/utils/datas.ts`.
+- **Valores monetários passam por `lib/utils/valores.ts`.** `Number("1.234,56".replace(",", "."))` devolve `NaN`.
+- **Todo formulário usa `lib/hooks/use-acao-unica.ts`.** `disabled={salvando}` só age depois do re-render do React, e um clique duplo rápido grava duas vezes.
+- **Parcelamento é uma série, não linhas soltas.** Quem amarra é o `grupo_parcela_id`; edição e exclusão pedem o escopo (só esta / esta e as próximas / todas) e filtram direto no banco.
+- **A segurança mora no Postgres.** RLS por operação, gatilho conferindo se conta e categoria são do dono do lançamento, e checagens de integridade. Não confie em validação só no cliente.
+- **A sessão é verificada uma vez por requisição.** `usuarioAtual()` (em `lib/supabase/server.ts`) é memoizado com `cache()` do React; chamar `getUser()` solto no layout e na página refaz a ida à rede.
 
 ---
 
@@ -143,8 +190,8 @@ Finance_IA/
 
 - **É de uso pessoal.** Não adicionar complexidade de multiusuário, multi-tenant ou área administrativa.
 - **Rapidez de lançamento vem antes de qualquer funcionalidade nova.** Se uma ideia tornar lançar um gasto mais lento, ela não entra.
-- **A IA nunca calcula valores financeiros sozinha.** O backend sempre calcula os números exatos direto no banco de dados; a IA só interpreta, categoriza ou explica em linguagem natural — nunca "inventa" um total.
-- **Privacidade em primeiro lugar.** Nenhum dado financeiro sai do Supabase/API da Anthropic para qualquer outro serviço de terceiros.
+- **Número financeiro sai do banco, sempre.** Se um dia a camada de IA voltar, ela interpreta e explica — nunca calcula um total.
+- **Privacidade em primeiro lugar.** Nenhum dado financeiro sai do Supabase para qualquer outro serviço de terceiros.
 
 ---
 
