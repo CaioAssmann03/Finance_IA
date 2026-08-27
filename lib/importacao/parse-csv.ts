@@ -1,4 +1,5 @@
 import Papa from "papaparse";
+import { paraNumeroMoeda } from "@/lib/utils/valores";
 
 /** Lê um CSV genérico e devolve TODAS as linhas cruas, sem assumir qual é o
  * cabeçalho — alguns bancos (ex: Bradesco) colocam linhas de título antes da
@@ -49,38 +50,10 @@ export function sugerirLinhaCabecalho(linhas: string[][]): number {
   return melhorIndice;
 }
 
-/** Converte um valor de texto (formatos comuns pt-BR e en-US) em número.
- * Detecta automaticamente se "," ou "." é o separador decimal, olhando
- * qual dos dois aparece por último no texto. */
+/** Converte um valor de texto em número, devolvendo 0 quando a célula não
+ * tem um número reconhecível (linha de saldo, cabeçalho repetido, etc.). */
 export function paraNumero(texto: string): number {
-  let limpo = (texto ?? "").replace(/[R$\s]/g, "").trim();
-  if (!limpo) return 0;
-
-  const negativo = /^-/.test(limpo) || /^\(.*\)$/.test(limpo);
-  limpo = limpo.replace(/[()-]/g, "");
-  if (!limpo) return 0;
-
-  const ultimaVirgula = limpo.lastIndexOf(",");
-  const ultimoPonto = limpo.lastIndexOf(".");
-
-  if (ultimaVirgula > -1 && ultimoPonto > -1) {
-    if (ultimaVirgula > ultimoPonto) {
-      limpo = limpo.replace(/\./g, "").replace(",", ".");
-    } else {
-      limpo = limpo.replace(/,/g, "");
-    }
-  } else if (ultimaVirgula > -1) {
-    limpo = limpo.replace(",", ".");
-  } else if (ultimoPonto > -1) {
-    const casas = limpo.length - ultimoPonto - 1;
-    if (casas === 3) {
-      limpo = limpo.replace(/\./g, "");
-    }
-  }
-
-  const numero = parseFloat(limpo);
-  if (Number.isNaN(numero)) return 0;
-  return negativo ? -numero : numero;
+  return paraNumeroMoeda(texto) ?? 0;
 }
 
 /** Converte data em formatos comuns (DD/MM/AAAA, AAAA-MM-DD) para AAAA-MM-DD. */

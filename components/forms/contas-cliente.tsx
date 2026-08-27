@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { formatarMoeda } from "@/lib/utils/formatters";
+import { useAcaoUnica } from "@/lib/hooks/use-acao-unica";
+import { paraNumeroMoeda } from "@/lib/utils/valores";
+import { mensagemDeErroBanco } from "@/lib/utils/erros-banco";
 import type { Conta, TipoConta } from "@/types/database";
 import { Plus, Trash2, Pencil, Wallet, CreditCard, Banknote, PiggyBank } from "lucide-react";
 import Link from "next/link";
@@ -32,6 +35,30 @@ interface CamposConta {
   saldoInicial: string;
   diaFechamento: string;
   diaVencimento: string;
+}
+
+/** Valida os campos comuns ao criar e ao editar uma conta, devolvendo os
+ * valores já convertidos para não repetir o parse em dois lugares. */
+function validarCampos(campos: CamposConta):
+  | { ok: true; saldoInicial: number; diaFechamento: number | null; diaVencimento: number | null }
+  | { ok: false; erro: string } {
+  if (!campos.nome.trim()) return { ok: false, erro: "Dê um nome para a conta." };
+
+  // Saldo inicial pode ser negativo (cheque especial, fatura em aberto).
+  const saldoInicial = campos.saldoInicial.trim() ? paraNumeroMoeda(campos.saldoInicial) : 0;
+  if (saldoInicial === null)
+    return { ok: false, erro: "O saldo inicial precisa ser um número." };
+
+  const ehCartao = campos.tipo === "cartao_credito";
+  const diaFechamento = ehCartao && campos.diaFechamento ? Number(campos.diaFechamento) : null;
+  const diaVencimento = ehCartao && campos.diaVencimento ? Number(campos.diaVencimento) : null;
+
+  for (const dia of [diaFechamento, diaVencimento]) {
+    if (dia !== null && (!Number.isInteger(dia) || dia < 1 || dia > 31))
+      return { ok: false, erro: "Os dias de fechamento e vencimento vão de 1 a 31." };
+  }
+
+  return { ok: true, saldoInicial, diaFechamento, diaVencimento };
 }
 
 function CamposFormularioConta({
@@ -101,7 +128,6 @@ export function ContasCliente({ contasIniciais }: { contasIniciais: Conta[] }) {
   const [contas, setContas] = useState(contasIniciais);
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Conta | null>(null);
-  const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const [campos, setCampos] = useState<CamposConta>({
@@ -123,46 +149,32 @@ export function ContasCliente({ contasIniciais }: { contasIniciais: Conta[] }) {
     setErro(null);
   }
 
-  async function criarConta(e: React.FormEvent) {
-    e.preventDefault();
+  async function criarConta() {
     setErro(null);
 
-    if (!campos.nome.trim()) {
-      setErro("Dê um nome para a conta.");
-      return;
-    }
-
-    setSalvando(true);
+    const validacao = validarCampos(campos);
+    if (!validacao.ok) return setErro(validacao.erro);
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
+    if (!user) return setErro("Sua sessão expirou. Entre de novo para continuar.");
+
     const { data, error } = await supabase
       .from("contas")
       .insert({
-        user_id: user!.id,
+        user_id: user.id,
         nome: campos.nome.trim(),
         tipo: campos.tipo,
-        saldo_inicial: Number(campos.saldoInicial.replace(",", ".")) || 0,
-        dia_fechamento:
-          campos.tipo === "cartao_credito" && campos.diaFechamento
-            ? Number(campos.diaFechamento)
-            : null,
-        dia_vencimento:
-          campos.tipo === "cartao_credito" && campos.diaVencimento
-            ? Number(campos.diaVencimento)
-            : null,
+        saldo_inicial: validacao.saldoInicial,
+        dia_fechamento: validacao.diaFechamento,
+        dia_vencimento: validacao.diaVencimento,
       })
       .select()
       .single();
 
-    setSalvando(false);
-
-    if (error || !data) {
-      setErro("Não foi possível criar a conta.");
-      return;
-    }
+    if (error || !data) return setErro(mensagemDeErroBanco(error?.message));
 
     setContas((atual) => [...atual, data as Conta]);
     limparFormulario();
@@ -170,15 +182,25 @@ export function ContasCliente({ contasIniciais }: { contasIniciais: Conta[] }) {
     router.refresh();
   }
 
+  const { executar: salvarConta, executando: salvando } = useAcaoUnica(criarConta);
+
   async function excluirConta(id: string) {
-    if (!confirm("Excluir esta conta? As transações associadas continuam existindo.")) {
+    // contas.id tem "on delete cascade" nas transações: apagar a conta apaga
+    // junto todo o histórico lançado nela. O aviso anterior dizia o contrário.
+    if (
+      !confirm(
+        "Excluir esta conta? Todos os lançamentos feitos nela também serão apagados."
+      )
+    ) {
       return;
     }
     const { error } = await supabase.from("contas").delete().eq("id", id);
-    if (!error) {
-      setContas((atual) => atual.filter((c) => c.id !== id));
-      router.refresh();
+    if (error) {
+      alert(mensagemDeErroBanco(error.message));
+      return;
     }
+    setContas((atual) => atual.filter((c) => c.id !== id));
+    router.refresh();
   }
 
   function atualizarNaLista(atualizada: Conta) {
@@ -254,10 +276,20 @@ export function ContasCliente({ contasIniciais }: { contasIniciais: Conta[] }) {
         onFechar={() => setModalAberto(false)}
         titulo="Nova conta"
       >
-        <form onSubmit={criarConta} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            salvarConta();
+          }}
+          className="flex flex-col gap-4"
+        >
           <CamposFormularioConta campos={campos} onChange={setCampos} />
 
-          {erro && <p className="text-sm text-brick">{erro}</p>}
+          {erro && (
+            <p role="alert" className="text-sm text-brick">
+              {erro}
+            </p>
+          )}
 
           <Button type="submit" disabled={salvando} className="mt-1 w-full">
             {salvando ? "Salvando..." : "Criar conta"}
@@ -297,55 +329,50 @@ function ModalEdicaoConta({
     diaFechamento: conta.dia_fechamento ? String(conta.dia_fechamento) : "",
     diaVencimento: conta.dia_vencimento ? String(conta.dia_vencimento) : "",
   });
-  const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  async function salvar(e: React.FormEvent) {
-    e.preventDefault();
+  async function salvar() {
     setErro(null);
 
-    if (!campos.nome.trim()) {
-      setErro("Dê um nome para a conta.");
-      return;
-    }
-
-    setSalvando(true);
+    const validacao = validarCampos(campos);
+    if (!validacao.ok) return setErro(validacao.erro);
 
     const { data, error } = await supabase
       .from("contas")
       .update({
         nome: campos.nome.trim(),
         tipo: campos.tipo,
-        saldo_inicial: Number(campos.saldoInicial.replace(",", ".")) || 0,
-        dia_fechamento:
-          campos.tipo === "cartao_credito" && campos.diaFechamento
-            ? Number(campos.diaFechamento)
-            : null,
-        dia_vencimento:
-          campos.tipo === "cartao_credito" && campos.diaVencimento
-            ? Number(campos.diaVencimento)
-            : null,
+        saldo_inicial: validacao.saldoInicial,
+        dia_fechamento: validacao.diaFechamento,
+        dia_vencimento: validacao.diaVencimento,
       })
       .eq("id", conta.id)
       .select()
       .single();
 
-    setSalvando(false);
-
-    if (error || !data) {
-      setErro("Não foi possível salvar as alterações.");
-      return;
-    }
+    if (error || !data) return setErro(mensagemDeErroBanco(error?.message));
 
     onSalvo(data as Conta);
   }
 
+  const { executar, executando: salvando } = useAcaoUnica(salvar);
+
   return (
     <Modal aberto onFechar={onFechar} titulo="Editar conta">
-      <form onSubmit={salvar} className="flex flex-col gap-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          executar();
+        }}
+        className="flex flex-col gap-4"
+      >
         <CamposFormularioConta campos={campos} onChange={setCampos} />
 
-        {erro && <p className="text-sm text-brick">{erro}</p>}
+        {erro && (
+          <p role="alert" className="text-sm text-brick">
+            {erro}
+          </p>
+        )}
 
         <Button type="submit" disabled={salvando} className="mt-1 w-full">
           {salvando ? "Salvando..." : "Salvar alterações"}

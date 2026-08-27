@@ -1,39 +1,50 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAcaoUnica } from "@/lib/hooks/use-acao-unica";
 import { traduzirErroAuth } from "@/lib/utils/erros-auth";
 
-export default function LoginPage() {
+/** Só aceita caminho interno como destino pós-login. Um "proximo" que aponte
+ * para outro domínio (ou para "//site.com") viraria um redirect aberto. */
+function destinoSeguro(proximo: string | null): string {
+  if (!proximo || !proximo.startsWith("/") || proximo.startsWith("//")) return "/dashboard";
+  return proximo;
+}
+
+function FormularioLogin() {
   const router = useRouter();
+  const parametros = useSearchParams();
   const supabase = createClient();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [erro, setErro] = useState<string | null>(null);
-  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState<string | null>(
+    parametros.get("erro") === "link-invalido"
+      ? "Esse link expirou ou já foi usado. Peça um novo."
+      : null
+  );
 
-  async function entrar(e: React.FormEvent) {
-    e.preventDefault();
+  async function entrar() {
     setErro(null);
-    setCarregando(true);
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password: senha,
     });
 
-    setCarregando(false);
-
     if (error) {
       setErro(traduzirErroAuth(error.message));
       return;
     }
 
-    router.push("/dashboard");
+    router.push(destinoSeguro(parametros.get("proximo")));
+    router.refresh();
   }
+
+  const { executar, executando: carregando } = useAcaoUnica(entrar);
 
   return (
     <main className="flex flex-1 items-center justify-center px-4">
@@ -49,7 +60,13 @@ export default function LoginPage() {
           </h1>
         </div>
 
-        <form onSubmit={entrar} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            executar();
+          }}
+          className="flex flex-col gap-4"
+        >
           <Input
             id="email"
             type="email"
@@ -77,7 +94,11 @@ export default function LoginPage() {
             </a>
           </div>
 
-          {erro && <p className="text-sm text-brick">{erro}</p>}
+          {erro && (
+            <p role="alert" className="text-sm text-brick">
+              {erro}
+            </p>
+          )}
 
           <Button type="submit" disabled={carregando} className="mt-2 w-full">
             {carregando ? "Entrando..." : "Entrar"}
@@ -92,5 +113,14 @@ export default function LoginPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+/** useSearchParams precisa de um limite de Suspense na renderização estática. */
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <FormularioLogin />
+    </Suspense>
   );
 }

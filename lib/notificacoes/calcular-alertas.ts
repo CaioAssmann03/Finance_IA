@@ -1,4 +1,5 @@
 import type { TransacaoRecorrente } from "@/types/database";
+import { ultimoDiaDoMes, diasEntre } from "@/lib/utils/datas";
 
 export interface Alerta {
   id: string;
@@ -10,10 +11,6 @@ export interface Alerta {
 
 const DIAS_ANTECEDENCIA_CONTA_FIXA = 3;
 const LIMITE_ATENCAO_ORCAMENTO = 80;
-
-function ultimoDiaDoMes(ano: number, mesIndice0: number): number {
-  return new Date(ano, mesIndice0 + 1, 0).getDate();
-}
 
 /** Calcula a próxima data de vencimento de uma recorrência a partir de hoje. */
 export function proximoVencimento(diaDoMes: number, hoje: Date): Date {
@@ -36,15 +33,10 @@ export function alertasDeContasFixas(
   recorrentesAtivas: TransacaoRecorrente[],
   hoje: Date = new Date()
 ): Alerta[] {
-  const hojeSemHora = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
-
   return recorrentesAtivas
     .map((r) => {
       const vencimento = proximoVencimento(r.dia_do_mes, hoje);
-      const diasAte = Math.round(
-        (vencimento.getTime() - hojeSemHora.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      return { r, vencimento, diasAte };
+      return { r, vencimento, diasAte: diasEntre(hoje, vencimento) };
     })
     .filter(({ diasAte }) => diasAte >= 0 && diasAte <= DIAS_ANTECEDENCIA_CONTA_FIXA)
     .map(({ r, diasAte }) => ({

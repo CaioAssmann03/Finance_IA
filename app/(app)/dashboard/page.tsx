@@ -6,6 +6,12 @@ import { GraficoEvolucaoMensal, type PontoEvolucaoMensal } from "@/components/ch
 import { GraficoSaldoAcumulado, type PontoSaldo } from "@/components/charts/grafico-saldo-acumulado";
 import { SeloComparacao } from "@/components/dashboard/selo-comparacao";
 import { formatarMoeda, nomeDoMes, formatarData } from "@/lib/utils/formatters";
+import {
+  chaveMesAtual,
+  primeiroDiaDoMes,
+  ultimoDiaDoMesISO,
+  diasEntre,
+} from "@/lib/utils/datas";
 import { gerarLancamentosDoMes } from "@/lib/recorrentes/gerar-lancamentos-do-mes";
 import { alertasDeContasFixas, alertasDeOrcamento, proximoVencimento } from "@/lib/notificacoes/calcular-alertas";
 import { AlertasFinanceiros } from "@/components/notificacoes/alertas-financeiros";
@@ -21,19 +27,13 @@ function chaveMes(data: Date): string {
 }
 
 function inicioFimDoMes(chave: string) {
-  const [ano, mes] = chave.split("-").map(Number);
-  const inicio = new Date(ano, mes - 1, 1);
-  const fim = new Date(ano, mes, 0);
-  return {
-    inicio: inicio.toISOString().slice(0, 10),
-    fim: fim.toISOString().slice(0, 10),
-  };
+  return { inicio: primeiroDiaDoMes(chave), fim: ultimoDiaDoMesISO(chave) };
 }
 
 function inicioDosUltimosMeses(chaveFinal: string, quantidade: number) {
   const [ano, mes] = chaveFinal.split("-").map(Number);
   const inicio = new Date(ano, mes - 1 - (quantidade - 1), 1);
-  return inicio.toISOString().slice(0, 10);
+  return primeiroDiaDoMes(chaveMes(inicio));
 }
 
 export default async function DashboardPage({
@@ -51,7 +51,7 @@ export default async function DashboardPage({
   }
 
   const { mes: mesParam } = await searchParams;
-  const mesMaximo = chaveMes(new Date());
+  const mesMaximo = chaveMesAtual();
   const mesSelecionado =
     mesParam && /^\d{4}-\d{2}$/.test(mesParam) && mesParam <= mesMaximo
       ? mesParam
@@ -68,6 +68,7 @@ export default async function DashboardPage({
     { data: orcamentos },
     { data: recorrentesAtivas },
     { data: transacoesSeisMeses },
+    { data: movimentoAteOMes },
   ] = await Promise.all([
       supabase.from("contas").select("*").returns<Conta[]>(),
       supabase
@@ -94,21 +95,29 @@ export default async function DashboardPage({
         .gte("data", inicioSeisMeses)
         .lte("data", fim)
         .returns<Transacao[]>(),
+      // Todo o histórico até o fim do mês exibido — só as colunas usadas no
+      // cálculo do saldo, para a consulta continuar leve.
+      supabase
+        .from("transacoes")
+        .select("conta_id, tipo, valor")
+        .lte("data", fim)
+        .returns<Pick<Transacao, "conta_id" | "tipo" | "valor">[]>(),
     ]);
 
   const listaContas = contas ?? [];
   const listaTransacoes = transacoesMes ?? [];
   const listaCategorias = categorias ?? [];
 
-  const saldoTotal = listaContas.reduce((soma, conta) => {
-    const movimentado = listaTransacoes
-      .filter((t) => t.conta_id === conta.id)
-      .reduce(
-        (acc, t) => acc + (t.tipo === "receita" ? t.valor : -t.valor),
-        0
-      );
-    return soma + conta.saldo_inicial + movimentado;
-  }, 0);
+  // Saldo total = saldo inicial das contas + TUDO o que foi movimentado até o
+  // fim do mês exibido. Antes só somava o mês selecionado, então o saldo mudava
+  // de valor conforme se navegava entre os meses.
+  const idsDasContas = new Set(listaContas.map((c) => c.id));
+  const saldoTotal = (movimentoAteOMes ?? [])
+    .filter((t) => idsDasContas.has(t.conta_id))
+    .reduce(
+      (soma, t) => soma + (t.tipo === "receita" ? t.valor : -t.valor),
+      listaContas.reduce((s, c) => s + c.saldo_inicial, 0)
+    );
 
   const receitasMes = listaTransacoes
     .filter((t) => t.tipo === "receita")
@@ -159,14 +168,14 @@ export default async function DashboardPage({
   ];
 
   const hojeReal = new Date();
-  const hojeSemHora = new Date(hojeReal.getFullYear(), hojeReal.getMonth(), hojeReal.getDate());
   const contasAPagar: ContaAPagar[] = (recorrentesAtivas ?? [])
     .map((r) => {
       const vencimento = proximoVencimento(r.dia_do_mes, hojeReal);
-      const diasAte = Math.round(
-        (vencimento.getTime() - hojeSemHora.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      return { descricao: r.descricao || "Conta fixa", valor: r.valor, diasAte };
+      return {
+        descricao: r.descricao || "Conta fixa",
+        valor: r.valor,
+        diasAte: diasEntre(hojeReal, vencimento),
+      };
     })
     .filter((c) => c.diasAte >= 0 && c.diasAte <= 7)
     .sort((a, b) => a.diasAte - b.diasAte);
@@ -259,6 +268,11 @@ export default async function DashboardPage({
           </div>
           <p className="mt-3 font-[family-name:var(--font-numeric)] text-3xl">
             {formatarMoeda(saldoTotal)}
+          </p>
+          <p className="mt-1 text-xs text-text-muted">
+            {vendoMesAtual
+              ? "Todas as contas, considerando todo o histórico."
+              : `Posição no fim de ${nomeDoMes(dataMesSelecionado)}.`}
           </p>
         </Card>
         <Card className="overflow-hidden border-l-2 border-l-sage">

@@ -11,6 +11,9 @@ import { CATEGORIAS_PADRAO } from "@/lib/categorias-padrao";
 import { PALETA_CATEGORIAS, corParaNovaCategoria } from "@/lib/paleta-categorias";
 import { iconeDaCategoria } from "@/lib/icones-categorias";
 import { mesReferenciaAtual } from "@/lib/utils/mes-referencia";
+import { useAcaoUnica } from "@/lib/hooks/use-acao-unica";
+import { paraNumeroMoeda } from "@/lib/utils/valores";
+import { mensagemDeErroBanco } from "@/lib/utils/erros-banco";
 import type { Categoria, Orcamento, TipoLancamento } from "@/types/database";
 import { Plus, Trash2, Sparkles, Pencil, Palette } from "lucide-react";
 import clsx from "clsx";
@@ -27,41 +30,38 @@ export function CategoriasCliente({
   const [categorias, setCategorias] = useState(categoriasIniciais);
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Categoria | null>(null);
-  const [criandoPadrao, setCriandoPadrao] = useState(false);
-  const [recolorindo, setRecolorindo] = useState(false);
-  const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState<TipoLancamento>("despesa");
 
   async function criarCategoriasPadrao() {
-    setCriandoPadrao(true);
+    setErro(null);
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
+    if (!user) return setErro("Sua sessão expirou. Entre de novo para continuar.");
+
     const registros = CATEGORIAS_PADRAO.map((c) => ({
-      user_id: user!.id,
+      user_id: user.id,
       nome: c.nome,
       tipo: c.tipo,
       icone: c.icone,
       cor: c.cor,
     }));
 
-    const { data, error } = await supabase
-      .from("categorias")
-      .insert(registros)
-      .select();
+    const { data, error } = await supabase.from("categorias").insert(registros).select();
 
-    setCriandoPadrao(false);
+    if (error || !data) return setErro(mensagemDeErroBanco(error?.message));
 
-    if (!error && data) {
-      setCategorias((atual) => [...atual, ...(data as Categoria[])]);
-      router.refresh();
-    }
+    setCategorias((atual) => [...atual, ...(data as Categoria[])]);
+    router.refresh();
   }
+
+  const { executar: gerarPadrao, executando: criandoPadrao } =
+    useAcaoUnica(criarCategoriasPadrao);
 
   async function recolorirTodas() {
     if (
@@ -71,56 +71,57 @@ export function CategoriasCliente({
     )
       return;
 
-    setRecolorindo(true);
+    setErro(null);
 
     const atualizadas = categorias.map((cat, i) => ({
       ...cat,
       cor: PALETA_CATEGORIAS[i % PALETA_CATEGORIAS.length],
     }));
 
-    await Promise.all(
+    const resultados = await Promise.all(
       atualizadas.map((cat) =>
         supabase.from("categorias").update({ cor: cat.cor }).eq("id", cat.id)
       )
     );
 
+    const falhou = resultados.find((r) => r.error);
+    if (falhou?.error) return setErro(mensagemDeErroBanco(falhou.error.message));
+
     setCategorias(atualizadas);
-    setRecolorindo(false);
     router.refresh();
   }
 
-  async function criarCategoria(e: React.FormEvent) {
-    e.preventDefault();
+  const { executar: recolorir, executando: recolorindo } = useAcaoUnica(recolorirTodas);
+
+  async function criarCategoria() {
     setErro(null);
 
-    if (!nome.trim()) {
-      setErro("Dê um nome para a categoria.");
-      return;
-    }
+    const nomeLimpo = nome.trim();
+    if (!nomeLimpo) return setErro("Dê um nome para a categoria.");
 
-    setSalvando(true);
+    const jaExiste = categorias.some(
+      (c) => c.tipo === tipo && c.nome.toLowerCase() === nomeLimpo.toLowerCase()
+    );
+    if (jaExiste) return setErro(`Já existe uma categoria de ${tipo} com esse nome.`);
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
+    if (!user) return setErro("Sua sessão expirou. Entre de novo para continuar.");
+
     const { data, error } = await supabase
       .from("categorias")
       .insert({
-        user_id: user!.id,
-        nome: nome.trim(),
+        user_id: user.id,
+        nome: nomeLimpo,
         tipo,
         cor: corParaNovaCategoria(categorias.map((c) => c.cor)),
       })
       .select()
       .single();
 
-    setSalvando(false);
-
-    if (error || !data) {
-      setErro("Não foi possível criar a categoria.");
-      return;
-    }
+    if (error || !data) return setErro(mensagemDeErroBanco(error?.message));
 
     setCategorias((atual) => [...atual, data as Categoria]);
     setNome("");
@@ -128,15 +129,19 @@ export function CategoriasCliente({
     router.refresh();
   }
 
+  const { executar: salvarCategoria, executando: salvando } = useAcaoUnica(criarCategoria);
+
   async function excluirCategoria(id: string) {
     if (!confirm("Excluir esta categoria?")) return;
     const { error } = await supabase.from("categorias").delete().eq("id", id);
-    if (!error) {
-      setCategorias((atual) => atual.filter((c) => c.id !== id));
-      router.refresh();
-    } else {
-      alert("Não foi possível excluir — existem transações usando essa categoria.");
+    if (error) {
+      alert(
+        "Não foi possível excluir — provavelmente existem lançamentos usando essa categoria. Mude a categoria deles pelo Extrato antes de apagar."
+      );
+      return;
     }
+    setCategorias((atual) => atual.filter((c) => c.id !== id));
+    router.refresh();
   }
 
   function atualizarNaLista(atualizada: Categoria) {
@@ -156,22 +161,26 @@ export function CategoriasCliente({
           Nova categoria
         </Button>
         {categorias.length === 0 && (
-          <Button
-            variant="secondary"
-            onClick={criarCategoriasPadrao}
-            disabled={criandoPadrao}
-          >
+          <Button variant="secondary" onClick={() => gerarPadrao()} disabled={criandoPadrao}>
             <Sparkles size={16} />
             {criandoPadrao ? "Criando..." : "Usar categorias padrão"}
           </Button>
         )}
         {categorias.length > 0 && (
-          <Button variant="ghost" onClick={recolorirTodas} disabled={recolorindo}>
+          <Button variant="ghost" onClick={() => recolorir()} disabled={recolorindo}>
             <Palette size={16} />
             {recolorindo ? "Recolorindo..." : "Recolorir com a paleta nova"}
           </Button>
         )}
       </div>
+
+      {/* Erros de "categorias padrão" e "recolorir" acontecem fora do modal —
+          sem isto ficariam invisíveis. */}
+      {erro && !modalAberto && (
+        <p role="alert" className="mb-4 text-sm text-brick">
+          {erro}
+        </p>
+      )}
 
       {categorias.length === 0 ? (
         <div className="rounded-md border border-dashed border-hairline p-10 text-center text-sm text-text-muted">
@@ -211,7 +220,13 @@ export function CategoriasCliente({
         onFechar={() => setModalAberto(false)}
         titulo="Nova categoria"
       >
-        <form onSubmit={criarCategoria} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            salvarCategoria();
+          }}
+          className="flex flex-col gap-4"
+        >
           <Input
             id="nome-categoria"
             label="Nome"
@@ -276,19 +291,12 @@ function ModalEdicaoCategoria({
   const supabase = createClient();
   const [nome, setNome] = useState(categoria.nome);
   const [cor, setCor] = useState(categoria.cor);
-  const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  async function salvar(e: React.FormEvent) {
-    e.preventDefault();
+  async function salvar() {
     setErro(null);
 
-    if (!nome.trim()) {
-      setErro("Dê um nome para a categoria.");
-      return;
-    }
-
-    setSalvando(true);
+    if (!nome.trim()) return setErro("Dê um nome para a categoria.");
 
     const { data, error } = await supabase
       .from("categorias")
@@ -297,19 +305,22 @@ function ModalEdicaoCategoria({
       .select()
       .single();
 
-    setSalvando(false);
-
-    if (error || !data) {
-      setErro("Não foi possível salvar as alterações.");
-      return;
-    }
+    if (error || !data) return setErro(mensagemDeErroBanco(error?.message));
 
     onSalvo(data as Categoria);
   }
 
+  const { executar, executando: salvando } = useAcaoUnica(salvar);
+
   return (
     <Modal aberto onFechar={onFechar} titulo="Editar categoria">
-      <form onSubmit={salvar} className="flex flex-col gap-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          executar();
+        }}
+        className="flex flex-col gap-4"
+      >
         <Input label="Nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
 
         <div className="flex flex-col gap-1.5">
@@ -409,13 +420,18 @@ function OrcamentoMensal({
 
   async function salvarLimite(categoriaId: string) {
     const texto = valores[categoriaId];
-    const numero = Number((texto ?? "").replace(",", "."));
+    const numero = paraNumeroMoeda(texto) ?? 0;
 
     setSalvandoId(categoriaId);
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
+
+    if (!user) {
+      setSalvandoId(null);
+      return;
+    }
 
     if (!texto || numero <= 0) {
       await supabase
@@ -429,7 +445,7 @@ function OrcamentoMensal({
 
     await supabase.from("orcamentos").upsert(
       {
-        user_id: user!.id,
+        user_id: user.id,
         categoria_id: categoriaId,
         mes_referencia: mesReferencia,
         valor_limite: numero,

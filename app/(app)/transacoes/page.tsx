@@ -5,16 +5,22 @@ import Link from "next/link";
 import { Plus, Repeat, Upload } from "lucide-react";
 import type { Conta, Categoria, Transacao } from "@/types/database";
 
+const LIMITE_LANCAMENTOS = 2000;
+
 export default async function TransacoesPage() {
   const supabase = await createClient();
 
   const [{ data: transacoes }, { data: contas }, { data: categorias }] =
     await Promise.all([
+      // O limite existe para a página não crescer sem controle. Ele precisa
+      // ser maior que o pior caso de um parcelamento longo, senão parte das
+      // parcelas ficaria fora da tela e os totais por grupo sairiam errados.
       supabase
         .from("transacoes")
         .select("*")
         .order("data", { ascending: false })
-        .limit(500)
+        .order("criado_em", { ascending: false })
+        .limit(LIMITE_LANCAMENTOS)
         .returns<Transacao[]>(),
       supabase.from("contas").select("*").returns<Conta[]>(),
       supabase.from("categorias").select("*").returns<Categoria[]>(),

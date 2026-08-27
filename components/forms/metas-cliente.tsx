@@ -8,6 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { formatarMoeda, formatarData } from "@/lib/utils/formatters";
+import { useAcaoUnica } from "@/lib/hooks/use-acao-unica";
+import { validarValorMonetario } from "@/lib/utils/valores";
+import { ehDataISOValida } from "@/lib/utils/datas";
+import { mensagemDeErroBanco } from "@/lib/utils/erros-banco";
 import type { Meta } from "@/types/database";
 import { Plus, Trash2, PiggyBank } from "lucide-react";
 import clsx from "clsx";
@@ -18,46 +22,42 @@ export function MetasCliente({ metasIniciais }: { metasIniciais: Meta[] }) {
   const [metas, setMetas] = useState(metasIniciais);
   const [modalNovaAberto, setModalNovaAberto] = useState(false);
   const [metaAporte, setMetaAporte] = useState<Meta | null>(null);
-  const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   const [nome, setNome] = useState("");
   const [valorAlvo, setValorAlvo] = useState("");
   const [dataAlvo, setDataAlvo] = useState("");
 
-  async function criarMeta(e: React.FormEvent) {
-    e.preventDefault();
+  async function criarMeta() {
     setErro(null);
 
-    if (!nome.trim() || !valorAlvo) {
-      setErro("Preencha o nome e o valor da meta.");
-      return;
-    }
+    if (!nome.trim()) return setErro("Dê um nome para a meta.");
 
-    setSalvando(true);
+    const alvo = validarValorMonetario(valorAlvo);
+    if (!alvo.ok) return setErro(alvo.erro!);
+
+    if (dataAlvo && !ehDataISOValida(dataAlvo))
+      return setErro("A data alvo não é uma data válida.");
 
     const {
       data: { user },
     } = await supabase.auth.getUser();
 
+    if (!user) return setErro("Sua sessão expirou. Entre de novo para continuar.");
+
     const { data, error } = await supabase
       .from("metas")
       .insert({
-        user_id: user!.id,
+        user_id: user.id,
         nome: nome.trim(),
-        valor_alvo: Number(valorAlvo.replace(",", ".")),
+        valor_alvo: alvo.valor,
         valor_atual: 0,
         data_alvo: dataAlvo || null,
       })
       .select()
       .single();
 
-    setSalvando(false);
-
-    if (error || !data) {
-      setErro("Não foi possível criar a meta.");
-      return;
-    }
+    if (error || !data) return setErro(mensagemDeErroBanco(error?.message));
 
     setMetas((atual) => [...atual, data as Meta]);
     setNome("");
@@ -67,13 +67,17 @@ export function MetasCliente({ metasIniciais }: { metasIniciais: Meta[] }) {
     router.refresh();
   }
 
+  const { executar: salvarMeta, executando: salvando } = useAcaoUnica(criarMeta);
+
   async function excluirMeta(id: string) {
     if (!confirm("Excluir esta meta?")) return;
     const { error } = await supabase.from("metas").delete().eq("id", id);
-    if (!error) {
-      setMetas((atual) => atual.filter((m) => m.id !== id));
-      router.refresh();
+    if (error) {
+      alert(mensagemDeErroBanco(error.message));
+      return;
     }
+    setMetas((atual) => atual.filter((m) => m.id !== id));
+    router.refresh();
   }
 
   function atualizarNaLista(atualizada: Meta) {
@@ -162,7 +166,13 @@ export function MetasCliente({ metasIniciais }: { metasIniciais: Meta[] }) {
         onFechar={() => setModalNovaAberto(false)}
         titulo="Nova meta"
       >
-        <form onSubmit={criarMeta} className="flex flex-col gap-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            salvarMeta();
+          }}
+          className="flex flex-col gap-4"
+        >
           <Input
             label="Nome"
             placeholder="Ex: Reserva de emergência"
@@ -219,41 +229,47 @@ function ModalAporte({
 }) {
   const supabase = createClient();
   const [valor, setValor] = useState("");
-  const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  async function salvar(e: React.FormEvent) {
-    e.preventDefault();
+  async function salvar() {
     setErro(null);
 
-    const numero = Number(valor.replace(",", "."));
-    if (!numero || numero <= 0) {
-      setErro("Informe um valor válido.");
-      return;
-    }
+    const aporte = validarValorMonetario(valor);
+    if (!aporte.ok) return setErro(aporte.erro!);
 
-    setSalvando(true);
+    // Relê o valor atual antes de somar: se a meta mudou em outra aba, somar em
+    // cima do número da tela sobrescreveria o aporte anterior.
+    const { data: atual } = await supabase
+      .from("metas")
+      .select("valor_atual")
+      .eq("id", meta.id)
+      .single<{ valor_atual: number }>();
+
+    const base = atual?.valor_atual ?? meta.valor_atual;
 
     const { data, error } = await supabase
       .from("metas")
-      .update({ valor_atual: meta.valor_atual + numero })
+      .update({ valor_atual: Math.round((base + aporte.valor) * 100) / 100 })
       .eq("id", meta.id)
       .select()
       .single();
 
-    setSalvando(false);
-
-    if (error || !data) {
-      setErro("Não foi possível salvar.");
-      return;
-    }
+    if (error || !data) return setErro(mensagemDeErroBanco(error?.message));
 
     onSalvo(data as Meta);
   }
 
+  const { executar, executando: salvando } = useAcaoUnica(salvar);
+
   return (
     <Modal aberto onFechar={onFechar} titulo={`Adicionar valor — ${meta.nome}`}>
-      <form onSubmit={salvar} className="flex flex-col gap-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          executar();
+        }}
+        className="flex flex-col gap-4"
+      >
         <p className="text-sm text-text-muted">
           Já juntado: {formatarMoeda(meta.valor_atual)} de{" "}
           {formatarMoeda(meta.valor_alvo)}

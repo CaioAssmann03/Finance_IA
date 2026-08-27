@@ -1,4 +1,5 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { urlDoSupabase } from "@/lib/supabase/env";
 
 /**
  * Cliente com a service role key — tem privilégios de administrador
@@ -7,16 +8,15 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
  * exclusivamente no servidor.
  */
 export function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url || !serviceRoleKey) {
+  if (!serviceRoleKey) {
     throw new Error(
       "SUPABASE_SERVICE_ROLE_KEY não configurada. Adicione no .env.local — veja .env.example."
     );
   }
 
-  return createSupabaseClient(url, serviceRoleKey, {
+  return createSupabaseClient(urlDoSupabase(), serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 }

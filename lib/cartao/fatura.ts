@@ -1,6 +1,4 @@
-function ultimoDiaDoMes(ano: number, mesIndice0: number): number {
-  return new Date(ano, mesIndice0 + 1, 0).getDate();
-}
+import { paraISO, ultimoDiaDoMes } from "@/lib/utils/datas";
 
 function diaSeguro(ano: number, mesIndice0: number, dia: number): Date {
   const diaValido = Math.min(dia, ultimoDiaDoMes(ano, mesIndice0));
@@ -52,7 +50,9 @@ export function calcularFaturas(
     return diaSeguro(fimCiclo.getFullYear(), mesVencimento, diaVencimento);
   }
 
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  // paraISO usa o calendário local; toISOString() empurraria a data um dia
+  // para frente ou para trás dependendo do fuso.
+  const iso = paraISO;
 
   return {
     atual: {

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
+import { useAcaoUnica } from "@/lib/hooks/use-acao-unica";
 import { Trash2 } from "lucide-react";
 
 export function BotaoExcluirConta() {
@@ -13,18 +14,26 @@ export function BotaoExcluirConta() {
   const supabase = createClient();
   const [modalAberto, setModalAberto] = useState(false);
   const [confirmacao, setConfirmacao] = useState("");
-  const [excluindo, setExcluindo] = useState(false);
+  const [email, setEmail] = useState("");
+  const [emailDaConta, setEmailDaConta] = useState("");
   const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setEmailDaConta(data.user?.email ?? ""));
+  }, [supabase]);
 
   async function excluir() {
     setErro(null);
-    setExcluindo(true);
 
-    const resposta = await fetch("/api/conta/excluir", { method: "POST" });
-    const dados = await resposta.json();
+    const resposta = await fetch("/api/conta/excluir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirmacao, email: email.trim() }),
+    });
+
+    const dados = await resposta.json().catch(() => ({}));
 
     if (!resposta.ok) {
-      setExcluindo(false);
       setErro(dados.erro ?? "Não foi possível excluir a conta.");
       return;
     }
@@ -33,6 +42,13 @@ export function BotaoExcluirConta() {
     router.push("/login");
     router.refresh();
   }
+
+  const { executar, executando } = useAcaoUnica(excluir);
+
+  const podeExcluir =
+    confirmacao === "EXCLUIR" &&
+    email.trim().toLowerCase() === emailDaConta.toLowerCase() &&
+    emailDaConta !== "";
 
   return (
     <>
@@ -52,26 +68,42 @@ export function BotaoExcluirConta() {
       >
         <div className="flex flex-col gap-4">
           <p className="text-sm text-text-muted">
-            Isso apaga <strong className="text-text">todos</strong> os seus
-            dados — contas, categorias, lançamentos, metas e orçamentos — sem
-            volta. Não tem como desfazer.
+            Isso apaga <strong className="text-text">todos</strong> os seus dados — contas,
+            categorias, lançamentos, metas e orçamentos — sem volta. Não tem como desfazer.
+          </p>
+          <p className="text-sm text-text-muted">
+            Antes de continuar, vale exportar seu extrato em CSV pela tela de Extrato.
           </p>
 
           <Input
+            label="Confirme o e-mail da conta"
+            type="email"
+            autoComplete="off"
+            placeholder={emailDaConta || "voce@email.com"}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+
+          <Input
             label='Digite "EXCLUIR" para confirmar'
+            autoComplete="off"
             value={confirmacao}
             onChange={(e) => setConfirmacao(e.target.value)}
           />
 
-          {erro && <p className="text-sm text-brick">{erro}</p>}
+          {erro && (
+            <p role="alert" className="text-sm text-brick">
+              {erro}
+            </p>
+          )}
 
           <Button
             variant="danger"
-            onClick={excluir}
-            disabled={confirmacao !== "EXCLUIR" || excluindo}
+            onClick={() => executar()}
+            disabled={!podeExcluir || executando}
             className="w-full"
           >
-            {excluindo ? "Excluindo..." : "Excluir minha conta pra sempre"}
+            {executando ? "Excluindo..." : "Excluir minha conta pra sempre"}
           </Button>
         </div>
       </Modal>
