@@ -2,6 +2,14 @@
 
 > Objetivo desta stack: simples de construir sozinho com ajuda de IA (Claude Code), barata/gratuita para uso pessoal, funciona bem em celular e computador.
 
+> **Estado em 27/08/2026:** a camada de IA descrita neste documento **não existe
+> mais no código**. As rotas `app/api/ia/*`, o cliente `lib/ia/anthropic.ts`, a tela
+> `/assistente` e a variável `ANTHROPIC_API_KEY` foram removidos, porque nenhuma tela
+> os usava e eram chamadas a uma API paga sem contrapartida. O que segue descreve o
+> desenho pretendido, mantido como referência caso a ideia volte. Ver
+> [`06-correcoes-e-seguranca.md`](./06-correcoes-e-seguranca.md).
+
+
 ## 1. Stack Recomendada
 
 | Camada | Tecnologia | Por quê |
@@ -11,7 +19,7 @@
 | Gráficos | **Recharts** | Simples para gráficos de pizza/linha/barra. |
 | Backend / Banco de dados | **Supabase** (Postgres gerenciado) | Já vem com autenticação, banco relacional, API automática e plano gratuito generoso. Elimina a necessidade de você criar um backend do zero. |
 | Autenticação | **Supabase Auth** | Login por e-mail/senha ou Google, pronto de fábrica. |
-| IA (categorização e assistente) | **API da Anthropic (Claude)** | Chamadas simples de texto: você manda a descrição da transação, ele devolve categoria sugerida; ou manda uma pergunta e ele responde com base nos seus dados agregados. |
+| ~~IA (categorização e assistente)~~ | ~~API da Anthropic (Claude)~~ | **Removido.** Ver aviso no topo. |
 | Hospedagem do frontend | **Vercel** (plano gratuito) | Deploy automático a cada mudança, feito para Next.js. |
 | PWA | **next-pwa** ou configuração manual de manifest + service worker | Permite "instalar" o app no celular. |
 
@@ -33,13 +41,10 @@ finance-ia/
 │   │   ├── contas/
 │   │   ├── categorias/
 │   │   ├── metas/
-│   │   ├── assistente/
+│   │   ├── relatorios/
 │   │   └── configuracoes/
 │   ├── api/
-│   │   ├── ia/
-│   │   │   ├── categorizar/route.ts
-│   │   │   └── perguntar/route.ts
-│   │   └── transacoes/route.ts
+│   │   └── conta/excluir/route.ts   # única rota: precisa da service role key
 │   └── layout.tsx
 ├── components/
 │   ├── ui/                   # botões, inputs, cards
@@ -48,9 +53,14 @@ finance-ia/
 ├── lib/
 │   ├── supabase/
 │   │   ├── client.ts
-│   │   └── server.ts
-│   ├── ia/
-│   │   └── anthropic.ts
+│   │   ├── server.ts
+│   │   ├── admin.ts
+│   │   └── env.ts
+│   ├── transacoes/          # regras de parcelamento
+│   ├── recorrentes/         # contas fixas do mês
+│   ├── cartao/              # ciclo de fatura
+│   ├── importacao/          # OFX, CSV, Excel
+│   ├── hooks/
 │   └── utils/
 ├── types/
 │   └── database.ts
@@ -62,7 +72,7 @@ finance-ia/
 
 ---
 
-## 3. Fluxo da IA de Categorização
+## 3. Fluxo da IA de Categorização *(removido do código — desenho de referência)*
 
 1. Você digita: `"50 mercado"` no campo de lançamento rápido.
 2. Frontend chama `/api/ia/categorizar` enviando o texto.
@@ -70,7 +80,7 @@ finance-ia/
 4. A IA responde em JSON estruturado: `{ "valor": 50.00, "categoria": "Alimentação", "descricao": "Mercado", "data": "hoje" }`.
 5. Frontend preenche o formulário automaticamente, você só confirma (ou ajusta) e salva.
 
-## 4. Fluxo do Assistente (perguntas em linguagem natural)
+## 4. Fluxo do Assistente *(removido do código — desenho de referência)*
 
 1. Você pergunta: `"quanto gastei com lazer esse mês?"`.
 2. Backend busca no Supabase os dados agregados relevantes (soma de transações da categoria "Lazer" no mês atual).
@@ -84,8 +94,12 @@ finance-ia/
 ## 5. Segurança
 
 - Ativar **Row Level Security (RLS)** no Supabase: cada tabela só permite leitura/escrita de dados pertencentes ao `user_id` autenticado, mesmo sendo só você — é boa prática e evita erro bobo.
-- Variáveis sensíveis (chave da API Anthropic, chaves do Supabase) sempre em variáveis de ambiente (`.env`), nunca no código.
+- Chaves do Supabase sempre em variáveis de ambiente (`.env.local`), nunca no código. A `SUPABASE_SERVICE_ROLE_KEY` ignora a RLS: só pode aparecer em código de servidor, e nunca com o prefixo `NEXT_PUBLIC_`.
 - HTTPS por padrão (Vercel já entrega isso).
+- Cabeçalhos de segurança (CSP, HSTS, `X-Frame-Options`) configurados em `next.config.ts`.
+- Proteção de rotas no `proxy.ts` (middleware), não só no layout.
+
+O detalhamento do que foi endurecido, e por quê, está em [`06-correcoes-e-seguranca.md`](./06-correcoes-e-seguranca.md).
 
 ---
 
@@ -93,7 +107,7 @@ finance-ia/
 
 - **Vercel:** gratuito no plano hobby.
 - **Supabase:** gratuito no plano free (até 500MB de banco — muito acima do que um controle financeiro pessoal usa).
-- **API Anthropic:** cobrança por uso (tokens). Para uso pessoal (algumas dezenas de lançamentos por dia + perguntas ocasionais), custo estimado é de poucos dólares por mês, ou menos.
+- **API Anthropic:** era o único custo variável previsto. Com a camada de IA removida, **o projeto hoje roda inteiramente em planos gratuitos**.
 
 ---
 
@@ -105,11 +119,11 @@ finance-ia/
 4. Configurar autenticação (login/cadastro).
 5. Construir a tela de Dashboard com dados mockados primeiro (validar layout).
 6. Conectar Dashboard ao banco real.
-7. Construir tela de lançamento de transação (sem IA ainda).
-8. Adicionar a chamada de IA para categorização automática.
-9. Construir extrato, contas, categorias, metas.
-10. Adicionar o assistente (chat).
-11. Configurar PWA (manifest + ícone) para instalar no celular.
-12. Deploy no Vercel.
+7. Construir tela de lançamento de transação.
+8. Construir extrato, contas, categorias, metas.
+9. Configurar PWA (manifest + ícone) para instalar no celular.
+10. Deploy no Vercel.
+
+> Os passos de IA que existiam aqui foram removidos junto com a camada.
 
 > Dica prática: peça para o Claude Code construir **uma tela por vez**, testando cada uma antes de seguir para a próxima. Isso evita que a IA "perca o fio" em um projeto grande de uma vez só.

@@ -3,3 +3,15 @@ node_modules/
 .env.local
 *.log
 *.tsbuildinfo
+
+# Gerado pelo Next a cada execução, e o conteúdo muda conforme o comando:
+# `next dev` aponta para ./.next/dev/types/routes.d.ts e `next build` aponta
+# para ./.next/types/routes.d.ts. Versionado, ele aparecia como alteração
+# pendente no git toda vez que se alternava entre rodar e buildar. O próprio
+# arquivo diz "should not be edited" e é recriado sozinho, então não faz falta
+# no repositório.
+next-env.d.ts
+
+# Configuração local do Claude Code (launch.json com o comando do dev server).
+# É preferência de máquina, não do projeto.
+.claude/

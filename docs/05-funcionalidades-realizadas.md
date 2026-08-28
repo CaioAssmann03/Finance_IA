@@ -177,4 +177,4 @@ Pede a **parcela atual** e o **total de parcelas** (ex: 3 de 10, se a compra já
 
 Todas as funcionalidades previstas no `docs/01-prd-visao-geral.md` e no `docs/04-roadmap.md` estão implementadas. Para novas funcionalidades ou ajustes, não existe mais uma lista de pendências fixa — acompanhe `docs/PROGRESSO.md` para o histórico de mudanças.
 
-> **Lembrete**: a categorização por texto e o assistente/chat exigem a variável `ANTHROPIC_API_KEY` configurada no `.env.local` (chave gerada em https://console.anthropic.com, com crédito na conta). Sem ela, essas duas funcionalidades mostram uma mensagem de erro clara em vez de travar o app.
+> **Desatualizado**: a categorização por texto e o assistente/chat foram **removidos do código** em 27/08/2026, junto com a variável `ANTHROPIC_API_KEY`. O que está descrito acima sobre eles é histórico. Ver [`06-correcoes-e-seguranca.md`](./06-correcoes-e-seguranca.md).
