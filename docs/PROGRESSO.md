@@ -5,7 +5,7 @@
 > Para retomar em uma nova conversa: envie este arquivo (ou o projeto zipado inteiro)
 > e diga "continue o projeto Finance IA a partir daqui".
 
-Última atualização: 12/07/2026
+Última atualização: 27/08/2026
 
 ---
 
@@ -65,11 +65,10 @@
 6. ~~**Fatura de cartão de crédito**~~ — **feito em 13/07/2026**. Nova rota `/contas/[id]`: se a conta for `cartao_credito`, calcula e mostra a fatura atual e a próxima (com data de fechamento/vencimento e lista de lançamentos de cada uma), usando `lib/cartao/fatura.ts`. Contas comuns mostram só o extrato daquela conta. Cards em `/contas` agora são clicáveis e levam pra essa tela.
 7. ~~**Orçamento por categoria**~~ — **feito em 13/07/2026**. Em `/categorias`, seção "Orçamento mensal por categoria" com input de limite por categoria de despesa (salva ao sair do campo, mês atual). No `/dashboard`, card "Orçamento do mês" com barra de progresso por categoria (verde <80%, dourado 80–100%, vermelho ≥100%, com aviso de texto).
 8. ~~**Metas financeiras**~~ — **feito em 13/07/2026**. Tela `/metas`: criar, adicionar valor aos poucos, barra de progresso, excluir.
-9. ~~Categorização automática por texto livre e assistente/chat~~ — **feito em 13/07/2026**.
-10. **Requer configurar `ANTHROPIC_API_KEY` no `.env.local`** para essas duas funcionalidades funcionarem (categorização e assistente) — sem a chave, elas mostram um erro claro pedindo pra configurar.
-11. ~~Exportação CSV~~ e ~~Importação de extrato (OFX/CSV)~~ — **feito em 14/07/2026**.
-12. ~~PWA instalável no celular~~ — **feito em 14/07/2026**. Ícones reais gerados (`scripts/gerar-icones.js` com `sharp`, a partir de `scripts/icon-source.svg`/`icon-maskable-source.svg`), `manifest.json` completo, `apple-touch-icon`, e um service worker mínimo (`public/sw.js`) que cacheia só assets estáticos (ícones e JS/CSS do Next) — nunca páginas ou dados, pra não arriscar mostrar informação financeira desatualizada.
-13. ~~Notificações (contas a vencer, orçamento estourado)~~ — **feito em 14/07/2026**. Banner de alertas no dashboard (`lib/notificacoes/calcular-alertas.ts` + `/api/alertas`) e notificações reais do navegador, opcionais, ativadas em `/configuracoes`.
+9. ~~Categorização automática por texto livre e assistente/chat~~ — feito em 13/07/2026, desligado da interface em 14/07/2026 e **removido do código em 27/08/2026**. Ver a seção "IA removida" no fim deste arquivo.
+10. ~~Exportação CSV~~ e ~~Importação de extrato (OFX/CSV)~~ — **feito em 14/07/2026**.
+11. ~~PWA instalável no celular~~ — **feito em 14/07/2026**. Ícones reais gerados (`scripts/gerar-icones.js` com `sharp`, a partir de `scripts/icon-source.svg`/`icon-maskable-source.svg`), `manifest.json` completo, `apple-touch-icon`, e um service worker mínimo (`public/sw.js`) que cacheia só assets estáticos (ícones e JS/CSS do Next) — nunca páginas ou dados, pra não arriscar mostrar informação financeira desatualizada.
+12. ~~Notificações (contas a vencer, orçamento estourado)~~ — **feito em 14/07/2026**. Banner de alertas no dashboard (`lib/notificacoes/calcular-alertas.ts` + `/api/alertas`) e notificações reais do navegador, opcionais, ativadas em `/configuracoes`.
 
 **Todo o roadmap original do PRD está implementado.** Dali pra frente é manutenção, ajustes de UX e o que mais surgir no uso real.
 
@@ -77,9 +76,9 @@
 
 ## 🧠 Decisões importantes já tomadas (não repetir a discussão)
 
-- Stack: Next.js + Supabase + Vercel + API Anthropic (ver `docs/02-arquitetura-tecnica.md`).
+- Stack: Next.js + Supabase + Vercel (ver `docs/02-arquitetura-tecnica.md`). A API da Anthropic saiu em 27/08/2026 — hoje o projeto roda inteiramente em planos gratuitos.
 - Um único código atende celular e computador (PWA), sem app nativo.
-- Regra de ouro da IA: ela nunca calcula valores financeiros sozinha — o backend sempre calcula os números exatos no banco, a IA só interpreta/explica/categoriza texto.
+- Regra de ouro, caso a IA volte: ela nunca calcula valores financeiros sozinha — o número exato sai sempre do banco, a IA só interpreta/explica/categoriza texto.
 - Identidade visual "livro-caixa" (ledger): fundo verde-tinta escuro, dourado como cor de destaque/valor, verde-sálvia para receita, terracota para despesa. Tipografia serifada (Fraunces) nos títulos, Inter no corpo, IBM Plex Mono nos valores numéricos. Elemento de assinatura: a "ledger-row" (linha com guia pontilhada entre rótulo e valor, como um extrato antigo).
 - Nomes de funções, variáveis, rotas e textos da interface estão em português, para manter consistência.
 
@@ -192,24 +191,49 @@ Nada disso mudou a estrutura ou o comportamento de nenhuma tela — é só CSS/c
 
 ---
 
-## 🚫 IA desativada temporariamente — 14/07/2026
+## 🚫 IA desativada da interface — 14/07/2026
 
-O usuário decidiu não usar a categorização por texto nem o assistente por enquanto (custo/crédito da API da Anthropic). Removido da interface, mas **o código continua no projeto** pra reativar rápido quando quiser:
-
-- `components/forms/formulario-novo-lancamento.tsx`: removido o bloco "Lançamento rápido por texto" e a chamada pra `/api/ia/categorizar`.
-- `components/layout/nav-principal.tsx`: removido "Assistente" do menu (sidebar e barra inferior).
-- `app/(app)/assistente/page.tsx`: trocado o chat por um aviso "desligado por enquanto", usando o componente `PaginaEmConstrucao` já existente.
-- **Não apagado**: `app/api/ia/categorizar/route.ts`, `app/api/ia/perguntar/route.ts`, `lib/ia/anthropic.ts`, `components/forms/assistente-chat.tsx` continuam no projeto, só não estão mais acessíveis pela interface. Pra reativar no futuro: (1) devolver o bloco de texto rápido no formulário de lançamento, (2) devolver "Assistente" no `ITENS` do menu, (3) trocar o conteúdo de `app/(app)/assistente/page.tsx` de volta pro `<AssistenteChat />`.
-
-## ⚠️ Nota sobre continuidade das sessões
-
-O ambiente onde este projeto é construído (nesta conversa com o Claude) pode ser reiniciado entre uma resposta e outra em conversas muito longas, apagando os arquivos locais daquele lado. Quando isso acontece, o projeto é reconstruído automaticamente a partir do último `finance-ia.zip` já entregue — por isso é importante que você sempre tenha o zip mais recente salvo, e que este arquivo `PROGRESSO.md` esteja sempre atualizado: é a fonte de verdade de tudo que já foi feito.
+O usuário decidiu não usar a categorização por texto nem o assistente (custo/crédito da API da Anthropic). Nesta data saiu só da interface; o código continuou no projeto. Substituído pela remoção definitiva abaixo.
 
 ---
 
+## 🧹 Rodada de correções e segurança — 27/08/2026 (PR #1)
+
+Disparada por dois problemas no uso real. Detalhamento completo em
+[`06-correcoes-e-seguranca.md`](./06-correcoes-e-seguranca.md).
+
+- **Parcelamento não dava para editar nem apagar em série.** O extrato só agrupava as parcelas com o filtro em "todos os meses", e o filtro abre no mês atual — o agrupamento ficava invisível. Agora cada parcela tem selo `3/12` e as ações pedem o escopo (só esta / esta e as próximas / todas), filtrando por `grupo_parcela_id` direto no banco.
+- **Clique duplo gravava o lançamento duas vezes.** `disabled={salvando}` só age depois do re-render do React. Criado `lib/hooks/use-acao-unica.ts`, aplicado em todos os formulários, mais um aviso de duplicata no lançamento.
+- **Recorrente duplicando sozinho.** `gerar-lancamentos-do-mes.ts` usava `.maybeSingle()`, que erra quando acha mais de uma linha — o erro virava "não achei" e o dashboard criava outra cópia a cada visita.
+- **Datas um dia atrasadas.** `new Date("2026-08-27")` é meia-noite em UTC. Centralizado em `lib/utils/datas.ts`.
+- Segurança: proteção de rotas no middleware, cabeçalhos HTTP (CSP/HSTS), exclusão de conta exigindo confirmação e e-mail, gatilho no banco conferindo dono dos vínculos, RLS por operação.
+- **Migração `0003_integridade_e_seguranca.sql`** — rodada em 27/08/2026.
+
+---
+
+## ⚡ Remoção da IA e desempenho — 27/08/2026 (PR #2)
+
+**IA removida de vez.** Apagados `app/api/ia/categorizar`, `app/api/ia/perguntar`, `lib/ia/anthropic.ts`, `app/(app)/assistente/` e `components/forms/assistente-chat.tsx`. A variável `ANTHROPIC_API_KEY` deixou de ser necessária. Motivo: era código chamando uma API paga sem estar em uso por nenhuma tela. O desenho pretendido segue em `docs/01` e `docs/02`, marcado como referência, e o histórico do git guarda a implementação.
+
+**Desempenho** (o usuário relatou o app lento):
+
+- A sessão era validada 3× por navegação — middleware, layout e página. `createClient` e `usuarioAtual` passaram a ser memoizados com `cache()` do React, e o middleware trocou `getUser()` por `getClaims()`, que valida o token localmente.
+- Não existia nenhum `loading.tsx`: o Next segurava a navegação inteira até a página ficar pronta. Cada rota do grupo `(app)` ganhou um esqueleto.
+- O dashboard trazia todas as transações do usuário só para somar o saldo. Virou a função `saldo_ate` no Postgres — **migração `0004_desempenho.sql`**, rodada em 27/08/2026.
+- `select("*")` trocado por colunas específicas onde só três eram lidas.
+
+**Pendente do lado do usuário:** migrar para signing keys assimétricas no Supabase (Auth → Signing Keys). Enquanto o projeto usar o JWT secret simétrico antigo, o `getClaims()` continua fazendo ida à rede e o ganho não aparece.
+
+---
+
+## 🔜 Débito técnico conhecido
+
+1. **`/transacoes` carrega até 2.000 lançamentos de uma vez** e manda todos para o cliente. Precisa de paginação no servidor.
+2. **A geração de contas fixas pega carona na renderização do dashboard.** Deveria ser um job agendado (pg_cron no Supabase), não trabalho feito no meio de uma requisição de página.
+3. **Nenhum teste automatizado no projeto.** As regras de parcelamento, datas e parse de valores são candidatas naturais.
+
 ## 📌 Como continuar esta conversa depois
 
-Se esta conversa for encerrada, na próxima:
-1. Envie o zip do projeto (`finance-ia.zip`) de volta pra mim.
-2. Cole a frase: "Continue o projeto Finance IA. Leia docs/PROGRESSO.md e siga a partir do próximo passo."
-3. Eu vou ler este arquivo e continuar exatamente da seção "Próximos passos" acima.
+O projeto está versionado no GitHub (`CaioAssmann03/Finance_IA`) e o trabalho acontece direto no repositório local — o fluxo antigo de mandar `finance-ia.zip` de um lado para o outro não é mais necessário.
+
+Numa conversa nova, basta apontar para o repositório e dizer: "Continue o projeto Finance IA. Leia `docs/PROGRESSO.md` e siga a partir do débito técnico conhecido."

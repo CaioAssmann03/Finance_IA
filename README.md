@@ -43,7 +43,7 @@ O detalhamento fino está em [`docs/PROGRESSO.md`](./docs/PROGRESSO.md).
 
 ### Assistente com IA (removido)
 
-A integração com a API da Anthropic (categorização automática por texto livre e chat sobre os próprios gastos) foi **retirada do código**: as rotas `app/api/ia/*`, o cliente `lib/ia/anthropic.ts` e a tela do assistente não existem mais, e a variável `ANTHROPIC_API_KEY` deixou de ser necessária.
+A integração de IA (categorização automática por texto livre e chat sobre os próprios gastos) foi **retirada do código**: as rotas `app/api/ia/*`, o cliente `lib/ia/anthropic.ts` e a tela do assistente não existem mais. Nenhuma chave de API de terceiros é usada pelo projeto, e **não há mais custo variável** — tudo roda em plano gratuito.
 
 O motivo é custo: eram rotas que chamavam uma API paga sem estarem em uso. A ideia segue no roadmap ([`docs/01-prd-visao-geral.md`](./docs/01-prd-visao-geral.md) e [`docs/02-arquitetura-tecnica.md`](./docs/02-arquitetura-tecnica.md) descrevem o desenho pretendido), e o histórico do git tem a implementação anterior caso valha retomar.
 

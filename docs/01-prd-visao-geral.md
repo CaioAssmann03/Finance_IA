@@ -85,7 +85,7 @@
 - Criar metas de economia (ex: "Juntar R$5.000 até dezembro").
 - Acompanhar progresso.
 
-### 4.9 Assistente IA (diferencial do produto)
+### 4.9 Assistente IA (diferencial do produto) — *removido do código em 27/08/2026, ver `06-correcoes-e-seguranca.md`*
 - Categorização automática de novas transações (aprende com o seu histórico).
 - Perguntas em linguagem natural, ex:
   - "Quanto gastei com comida esse mês?"
@@ -116,7 +116,7 @@
 
 ## 6. Requisitos Não Funcionais
 
-- **Privacidade:** dados são só seus. Nenhuma informação financeira deve ser exposta publicamente. Se usar IA de terceiros (ex: API da Anthropic/OpenAI) para categorização, enviar só o texto da transação (descrição/valor), nunca dados de login ou identificação bancária completa.
+- **Privacidade:** dados são só seus. Nenhuma informação financeira deve ser exposta publicamente. Hoje nenhum dado sai do Supabase para terceiros — a camada de IA foi removida. Se um dia voltar, enviar só o texto da transação (descrição/valor), nunca dados de login ou identificação bancária completa.
 - **Backup:** dados armazenados em banco na nuvem com backup automático (ver documento de arquitetura).
 - **Performance:** lançar uma transação deve responder em menos de 1 segundo.
 - **Acessível:** funcionar bem em tela pequena (celular) e grande (desktop) — design responsivo.
