@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { usuarioAtual } from "@/lib/supabase/server";
 import { CabecalhoPagina } from "@/components/layout/cabecalho-pagina";
 import { NotificacoesCliente } from "@/components/notificacoes/notificacoes-cliente";
 import { Card } from "@/components/ui/card";
@@ -7,10 +7,7 @@ import { BotaoSair } from "@/components/auth/botao-sair";
 import { BotaoExcluirConta } from "@/components/auth/botao-excluir-conta";
 
 export default async function ConfiguracoesPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await usuarioAtual();
 
   return (
     <div>

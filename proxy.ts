@@ -11,7 +11,6 @@ const ROTAS_PROTEGIDAS = [
   "/categorias",
   "/metas",
   "/relatorios",
-  "/assistente",
   "/configuracoes",
 ];
 
@@ -24,6 +23,10 @@ function ehRota(caminho: string, prefixos: string[]) {
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request });
+
+  const caminho = request.nextUrl.pathname;
+  const rotaProtegida = ehRota(caminho, ROTAS_PROTEGIDAS);
+  const rotaDeAutenticacao = ehRota(caminho, ROTAS_DE_AUTENTICACAO);
 
   const supabase = createServerClient(urlDoSupabase(), chaveAnonimaDoSupabase(), {
     cookies: {
@@ -40,15 +43,19 @@ export async function proxy(request: NextRequest) {
     },
   });
 
-  // getUser() valida o token no servidor do Supabase (getSession() apenas lê o
-  // cookie e aceitaria um cookie forjado) e, de quebra, renova a sessão.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // `getClaims()` valida a assinatura do token localmente (busca e guarda o
+  // JWKS do projeto), em vez de perguntar ao servidor de auth a cada navegação
+  // como o `getUser()` fazia. Continua sendo verificação de verdade — um cookie
+  // forjado não passa —, e de quebra renova a sessão quando precisa.
+  //
+  // Se o projeto ainda usa o JWT secret simétrico antigo, a biblioteca cai
+  // sozinha no caminho de rede, com o mesmo custo de antes. Migrar para signing
+  // keys assimétricas (painel do Supabase > Auth > Signing Keys) é o que faz
+  // esta linha deixar de custar uma ida à rede por requisição.
+  const { data: claims } = await supabase.auth.getClaims();
+  const autenticado = Boolean(claims?.claims?.sub);
 
-  const caminho = request.nextUrl.pathname;
-
-  if (!user && ehRota(caminho, ROTAS_PROTEGIDAS)) {
+  if (!autenticado && rotaProtegida) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.search = "";
@@ -58,7 +65,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && ehRota(caminho, ROTAS_DE_AUTENTICACAO)) {
+  if (autenticado && rotaDeAutenticacao) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     url.search = "";
@@ -70,6 +77,10 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|icons/|.*\\.(?:svg|png|jpg|jpeg|webp)$).*)",
+    // Fica fora do middleware tudo o que não depende de sessão: estáticos do
+    // Next, ícones, service worker, manifesto e imagens. Toda rota que entra
+    // aqui paga o custo da verificação, então a lista existe para manter esse
+    // custo só onde ele serve para alguma coisa.
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|icons/|.*\\.(?:svg|png|jpg|jpeg|webp|ico|txt)$).*)",
   ],
 };

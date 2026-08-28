@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { usuarioAtual } from "@/lib/supabase/server";
 import { NavPrincipal } from "@/components/layout/nav-principal";
 import { VerificadorDeAlertas } from "@/components/notificacoes/verificador-de-alertas";
 
@@ -8,10 +8,9 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // O middleware já barrou quem não tem sessão; esta checagem é a segunda
+  // tranca. Graças ao cache por requisição, ela não custa uma nova ida à rede.
+  const user = await usuarioAtual();
 
   if (!user) {
     redirect("/login");

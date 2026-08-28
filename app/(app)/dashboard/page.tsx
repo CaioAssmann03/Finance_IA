@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, usuarioAtual } from "@/lib/supabase/server";
 import { CabecalhoPagina } from "@/components/layout/cabecalho-pagina";
 import { Card } from "@/components/ui/card";
 import { GraficoCategorias } from "@/components/charts/grafico-categorias";
@@ -17,7 +17,7 @@ import { alertasDeContasFixas, alertasDeOrcamento, proximoVencimento } from "@/l
 import { AlertasFinanceiros } from "@/components/notificacoes/alertas-financeiros";
 import { SeletorMesDashboard } from "@/components/dashboard/seletor-mes";
 import { ContasAPagar, type ContaAPagar } from "@/components/dashboard/contas-a-pagar";
-import type { Conta, Transacao, Categoria, Orcamento, TransacaoRecorrente } from "@/types/database";
+import type { Transacao, Categoria, Orcamento, TransacaoRecorrente } from "@/types/database";
 import Link from "next/link";
 import { Plus, Wallet, TrendingUp, TrendingDown } from "lucide-react";
 import clsx from "clsx";
@@ -42,9 +42,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ mes?: string }>;
 }) {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await usuarioAtual();
 
   if (user) {
     await gerarLancamentosDoMes(supabase, user.id);
@@ -62,15 +60,13 @@ export default async function DashboardPage({
   const inicioSeisMeses = inicioDosUltimosMeses(mesSelecionado, 6);
 
   const [
-    { data: contas },
     { data: transacoesMes },
     { data: categorias },
     { data: orcamentos },
     { data: recorrentesAtivas },
     { data: transacoesSeisMeses },
-    { data: movimentoAteOMes },
+    { data: saldoCalculado, error: erroSaldo },
   ] = await Promise.all([
-      supabase.from("contas").select("*").returns<Conta[]>(),
       supabase
         .from("transacoes")
         .select("*")
@@ -89,35 +85,31 @@ export default async function DashboardPage({
         .select("*")
         .eq("ativo", true)
         .returns<TransacaoRecorrente[]>(),
+      // O gráfico dos 6 meses só usa data, tipo e valor — trazer as outras
+      // colunas era peso de rede à toa.
       supabase
         .from("transacoes")
-        .select("*")
+        .select("data, tipo, valor")
         .gte("data", inicioSeisMeses)
         .lte("data", fim)
-        .returns<Transacao[]>(),
-      // Todo o histórico até o fim do mês exibido — só as colunas usadas no
-      // cálculo do saldo, para a consulta continuar leve.
-      supabase
-        .from("transacoes")
-        .select("conta_id, tipo, valor")
-        .lte("data", fim)
-        .returns<Pick<Transacao, "conta_id" | "tipo" | "valor">[]>(),
+        .returns<Pick<Transacao, "data" | "tipo" | "valor">[]>(),
+      // Soma feita no Postgres (migração 0004): volta um número só, em vez de
+      // todo o histórico do usuário pela rede a cada abertura do dashboard.
+      supabase.rpc("saldo_ate", { p_data: fim }),
     ]);
 
-  const listaContas = contas ?? [];
   const listaTransacoes = transacoesMes ?? [];
   const listaCategorias = categorias ?? [];
 
   // Saldo total = saldo inicial das contas + TUDO o que foi movimentado até o
   // fim do mês exibido. Antes só somava o mês selecionado, então o saldo mudava
   // de valor conforme se navegava entre os meses.
-  const idsDasContas = new Set(listaContas.map((c) => c.id));
-  const saldoTotal = (movimentoAteOMes ?? [])
-    .filter((t) => idsDasContas.has(t.conta_id))
-    .reduce(
-      (soma, t) => soma + (t.tipo === "receita" ? t.valor : -t.valor),
-      listaContas.reduce((s, c) => s + c.saldo_inicial, 0)
-    );
+  //
+  // Enquanto a migração 0004 não for rodada a função não existe. Nesse caso o
+  // card diz que falta rodar, em vez de mostrar R$ 0,00 como se fosse o saldo
+  // real — número errado em tela de dinheiro é pior do que número ausente.
+  const saldoIndisponivel = Boolean(erroSaldo);
+  const saldoTotal = Number(saldoCalculado ?? 0);
 
   const receitasMes = listaTransacoes
     .filter((t) => t.tipo === "receita")
@@ -267,10 +259,12 @@ export default async function DashboardPage({
             Saldo total
           </div>
           <p className="mt-3 font-[family-name:var(--font-numeric)] text-3xl">
-            {formatarMoeda(saldoTotal)}
+            {saldoIndisponivel ? "—" : formatarMoeda(saldoTotal)}
           </p>
           <p className="mt-1 text-xs text-text-muted">
-            {vendoMesAtual
+            {saldoIndisponivel
+              ? "Indisponível: rode a migração 0004 no Supabase para o saldo voltar."
+              : vendoMesAtual
               ? "Todas as contas, considerando todo o histórico."
               : `Posição no fim de ${nomeDoMes(dataMesSelecionado)}.`}
           </p>
@@ -332,7 +326,13 @@ export default async function DashboardPage({
         </Card>
         <Card>
           <p className="mb-4 text-sm text-text-muted">Saldo acumulado</p>
-          <GraficoSaldoAcumulado dados={saldoAcumulado} />
+          {saldoIndisponivel ? (
+            <p className="py-8 text-center text-sm text-text-muted">
+              Depende do saldo total, que precisa da migração 0004.
+            </p>
+          ) : (
+            <GraficoSaldoAcumulado dados={saldoAcumulado} />
+          )}
         </Card>
       </div>
 

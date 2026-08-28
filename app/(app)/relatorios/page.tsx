@@ -36,12 +36,13 @@ export default async function RelatoriosPage({
         .gte("data", inicioAno)
         .lte("data", fimAno)
         .returns<Transacao[]>(),
+      // O ano anterior entra só nos totais de comparação: três colunas bastam.
       supabase
         .from("transacoes")
-        .select("*")
+        .select("data, tipo, valor")
         .gte("data", inicioAnoAnterior)
         .lte("data", fimAnoAnterior)
-        .returns<Transacao[]>(),
+        .returns<Pick<Transacao, "data" | "tipo" | "valor">[]>(),
       supabase.from("categorias").select("*").returns<Categoria[]>(),
     ]);
 

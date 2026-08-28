@@ -1,9 +1,9 @@
 /**
  * Limitador de requisições por janela deslizante, guardado em memória.
  *
- * Serve para as rotas que custam dinheiro (as de IA, que chamam a API da
- * Anthropic) e para as destrutivas. Sem isso, uma conta logada — ou um script
- * com o cookie dela — consegue disparar chamadas em série e gerar fatura.
+ * Serve para as rotas destrutivas ou caras — hoje a de excluir a conta. Sem
+ * isso, uma sessão válida (ou um script com o cookie dela) consegue disparar
+ * chamadas em série sem nenhum freio.
  *
  * Limitação conhecida: em memória vale por instância do servidor. Numa
  * hospedagem serverless com várias instâncias isso vira um limite "por
